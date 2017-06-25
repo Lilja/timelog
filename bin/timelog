@@ -35,6 +35,56 @@ function list_projects {
   done
 }
 
+function get_project_meta_info {
+  file=$(cat "$log_path/def/$1")
+  target_hours=$(echo "$file" | grep -o 'target_hours\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
+  money=$(echo "$file" | grep -o 'money_per_hour\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
+  logger_debug "target_hours: $target_hours"
+  logger_debug "Money: $money"
+}
+
+function week_stats {
+  # $1 = the week to look at
+  # $2 = content of a project file(string)
+  # RELIES ON THAT $target_hours has been set!
+  l=$(echo "$2" | grep "2017-$1-[1-7]*\/" | grep -o '\[[0-9]\+\.*[0-9]*\]')
+  if [ -z $target_hours ]; then { echo "Target hours not specified." ; exit 1 ; } fi
+
+  dec_time=0
+  for f in $l; do
+    k=$(echo "$f" | grep -o '[0-9]*\.*[0-9]*')
+    dec_time=$(awk "BEGIN {print ($hours+$k)}")
+  done
+
+  weekly_info=$(weekly_stats_days "$1" "$2")
+  amount_of_days_worked=$(echo $weekly_info | wc -w)
+  days=$((5-$amount_of_days_worked))
+  remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
+  estimate=$(awk "BEGIN {print ($remaining/$days)}")
+
+  if [ $(awk 'BEGIN{ if (ARGV[1]>0) { print 0 } else { print 1 } }' "$dec_time") -eq 0 ]; then
+    echo "You have worked for $dec_time hours at the following days: $(weekly_stats_days "$1" "$2")"
+    echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
+    echo "$estimate hours for $days more days."
+    [ ! -z "$money" ] && {
+      echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") pre-tax!"
+    }
+  else
+      echo "Nothing worked on week $1 for project $proj_name"
+  fi
+}
+
+function weekly_stats_days {
+  k=(Monday Tuesday Wednesday Thursday Friday Saturday Sunday)
+  days=$(echo "$2" | grep -o "2017-$1-[1-7]*\/" | grep -o '\-[1-7]\/' | grep -o '[1-7]' | sort)
+  day_str=""
+  for day in $days; do
+    day_str="$day_str, ${k[((day-1))]}"
+  done
+  day_str=$(echo "$day_str" | sed 's/^,\ //')
+  echo "$day_str"
+}
+
 function get_all_projects {
   all_projects=$(list_projects)
 }
@@ -61,35 +111,39 @@ function does_project_exist {
 
 function delete_project {
   if [ ! -z "$all_projects" ]; then
-      echo "The projects"
-      echo -e "$all_projects"
+    echo "The projects"
+    echo -e "$all_projects"
 
-      echo "Which project do you want deleted?"
-      read proj
+    echo "Which project do you want deleted?"
+    read proj
 
-      echo "Are you sure you want to delete it? (y/n)"
-      read ans
-      if [ "$ans" = "y" ]; then
-        logger_debug "Sending $proj as param info to project info"
-        proj=$(get_project_from_all_projects $proj)
-        logger_debug "Matched '$proj'"
-        [ -f "$log_path/def/$proj" ] && {
-            rm "$log_path/$proj.logs" ;
-            rm "$log_path/def/$proj" ;
-            logger_debug "Deleting logs '$proj_name.logs'" ;
-            logger_debug "Deleting definition 'def/$proj_name'" ;
-            all_projects=$(list_projects) ;
-        } || {
-          echo "No such project file: '$log_path/def/$proj'" ;
-        }
-      fi
+    echo "Are you sure you want to delete it? (y/n)"
+    read ans
+    if [ "$ans" = "y" ]; then
+      logger_debug "Sending $proj as param info to project info"
+      proj=$(get_project_from_all_projects $proj)
+      logger_debug "Matched '$proj'"
+      [ -f "$log_path/def/$proj" ] && {
+        rm "$log_path/$proj.logs" ;
+        rm "$log_path/def/$proj" ;
+        logger_debug "Deleting logs '$proj_name.logs'" ;
+        logger_debug "Deleting definition 'def/$proj_name'" ;
+        all_projects=$(list_projects) ;
+      } || {
+        echo "No such project file: '$log_path/def/$proj'" ;
+      }
+    fi
   else
-      echo "No projects, can't delete nothing that doesn't exist!"
+    echo "No projects, can't delete nothing that doesn't exist!"
   fi
 }
 
 function get_project_from_all_projects {
-  echo "$all_projects" | grep "^$1" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
+  echo "$all_projects" | grep "^$1"  | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
+}
+
+function get_project_from_short {
+  echo "$all_projects" | grep "[$1]" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
 }
 
 function describe_project {
@@ -101,15 +155,24 @@ function describe_project {
   echo "(This is used to specify which project you would like to submit time to)"
   read project_short
 
-  echo "(Optional) What does the project pay(per hour)?"
+  echo "What does the project pay(per hour)?"
   read money_per_hour
 
-  [ ! -f "$log_path/def/$project_short" ] && {
-      logger_debug "Initalizing project $project_name" ;
-      touch $log_path/def/$project_name
-      echo "project_name=$project_name" > $log_path/def/$project_name ;
-      echo "short_hand_name=$project_short" >> $log_path/def/$project_name ;
-      echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name ;
+  echo "What is the target hours per week?"
+  read target_hours
+
+  echo "What is the currency paid?"
+  read currency
+
+  [ ! -f "$log_path/def/$project_name" ] && {
+    logger_debug "Initalizing project $project_name" ;
+    touch $log_path/def/$project_name
+    touch $log_path/$project_name.logs
+    echo "project_name=$project_name" > $log_path/def/$project_name ;
+    echo "short_hand_name=$project_short" >> $log_path/def/$project_name ;
+    echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name ;
+    echo "target_hours=$target_hours" >> $log_path/def/$project_name ;
+    echo "currency=$currency" >> $log_path/def/$project_name ;
   }
 }
 
@@ -136,14 +199,14 @@ function get_project {
   # $1 = project, if $1 = empty then $default. If $1 != default then default. else $1
   if [ -z "$1" ]; then echo $default;
   elif [ "$1" != "$default" ]; then echo $1;
-  else; echo $default ; fi
+  else echo $default ; fi;
 }
 
 function is_program_inited {
   if [ -f $log_path/config ] ; then exit 0
   else
-      logger_debug "The program is not initialized"
-      exit 1
+    logger_debug "The program is not initialized"
+    exit 1
   fi
 }
 
@@ -160,7 +223,7 @@ function write_to_disk {
   break_min=$5
   note=$6
   date=$(date +%Y-%m-%d)
-  week_date=$(date +%Y-%V-%d)
+  week_date=$(date +%Y-%V-%u)
   proj_log_path=$(get_log_path_for_project $project)
   entry="$week_date/$date [$dec_time] ($start_time $end_time $break_min) [$note]"
   echo "$entry" >> $proj_log_path
@@ -287,8 +350,8 @@ while [[ $# -ge 1 ]]; do
       case "$2" in
         project)
           logger_debug "About to describe project project"
-          describe_project
           new_project="y"
+          specify_project="n"
           shift ; shift
         ;;
         *)
@@ -299,7 +362,8 @@ while [[ $# -ge 1 ]]; do
     show)
       case "$2" in
         logs)
-          ''
+          show_logs=$3
+          shift ; shift ; shift
         ;;
       esac
     ;;
@@ -327,11 +391,20 @@ while [[ $# -ge 1 ]]; do
       note=$2
       shift; shift
     ;;
+    --dev)
+      log_path=$2
+      shift ; shift
+    ;;
     log)
       case "$2" in
         project)
+          echo "short proj name matched: $3"
           proj_name=$3
+          short_matched="y"
           shift ; shift
+        ;;
+        *)
+          shift
         ;;
       esac
 
@@ -381,11 +454,21 @@ done
 if [ -z "$uninstall" ]; then
   k=$(is_program_inited)
   if [ $? -eq 1 ]; then init_program; fi
+fi
 
-  logger_debug "Project input: $proj_name"
-  proj_name=$(get_project $proj_name)
-  logger_debug "Project is set as $proj_name"
+if [ "$specify_project" != "y" ]; then
   get_all_projects
+  logger_debug "Project input: $proj_name"
+  [ "$short_matched" = "y" ] && {
+    proj_name=$(get_project_from_short $proj_name) ;
+  } || {
+    proj_name=$(get_project $proj_name) ;
+  }
+  logger_debug "Project is set as '$proj_name'"
+fi
+
+if [ ! -z $new_project ]; then
+  describe_project
 fi
 
 if [ ! -z "$list_projects" ]; then
@@ -402,6 +485,22 @@ if [ ! -z "$delete_project" ];
 then
   delete_project
   exit 0
+elif [ ! -z "$show_logs" ]; then
+  if [ ! -z "$all_projects" ]; then
+    if [ -z "$proj_name" ]; then
+      #echo "You did not specify a project to log time for."
+      #echo "Here are the projects you have created:"
+      #echo "$all_projects"
+      #echo "What project are you trying to log time for?"
+      #read prompt_new_proj_name
+      #proj_name=$prompt_new_proj_name
+      #proj_name=$(get_project_from_all_projects $prompt_new_proj_name)
+      proj_name="Qvantel"
+      get_project_meta_info $proj_name
+      logger_debug "Showing logs for $proj_name given week $show_logs"
+    fi
+    week_stats $show_logs "$(cat $log_path/$proj_name.logs)"
+  fi
 elif [ ! -z $start_time ]; then
   if [ -z "$proj_name" ]; then
     if [ ! -z "$all_projects" ]; then
