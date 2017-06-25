@@ -1,0 +1,12 @@
+language: bash
+sudo: false
+before_script:
+  - chmod +x test/unittest.sh
+  - chmod +x bin/timelog
+  - export PATH=$PATH:$PWD/bin/
+
+script:
+  - export PATH=$PATH:$PWD/bin/
+  - pushd test/
+  - source unittest.sh
+  - popd
