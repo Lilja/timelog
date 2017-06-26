@@ -12,5 +12,6 @@ to delete a project
 to log time for a project given two times and a break time
 
 Install instructions
-Clone the repository, then just add the bin directory to the $PATH
-cd bin/ && PATH=$PATH:$PWD
+Clone the repository, then just add the bin directory to the $PATH by running:
+
+`cd bin/ && export PATH=$PATH:$PWD/bin/`
