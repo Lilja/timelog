@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/Lilja/timelog.png?label=ready&title=Ready)](https://waffle.io/Lilja/timelog?utm_source=badge)
 Timelog
 
 CLI Utility to log time for different projects.
