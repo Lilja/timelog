@@ -40,8 +40,10 @@ function get_project_meta_info {
   file=$(cat "$log_path/def/$1")
   target_hours=$(echo "$file" | grep -o 'target_hours\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
   money=$(echo "$file" | grep -o 'money_per_hour\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
+  currency=$(echo "$file" | grep -o 'currency\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
   logger_debug "target_hours: $target_hours"
   logger_debug "Money: $money"
+  logger_debug "Currency: $currency"
 }
 
 function week_stats {
@@ -68,7 +70,7 @@ function week_stats {
     echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
     echo "$estimate hours for $days more days."
     [ ! -z "$money" ] && {
-      echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") pre-tax!"
+      echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") $currency pre-tax!"
     }
   else
       echo "Nothing worked on week $1 for project $proj_name"
@@ -91,17 +93,45 @@ function get_all_projects {
 }
 
 function parse_timestamp {
-  echo $1 | sed 's/[a-z][A-Z][:]//g'
+  hour="" ; minute=""
+
+  if [[ ${#1} -eq 1 ]]; then
+    # 0-9
+    hour=$(echo $1 | grep -o '[0-9]\{1\}'); hour="0$hour"; minute="00"
+  elif [[ ${#1} -eq 2 ]]; then
+    # 10-23
+    hour=$(echo $1 | grep -o '\(\(1[0-9]\)\|2\([0-3]\)\)'); minute="00"
+  elif [[ ${#1} -eq 5 ]]; then
+    # 08:00
+    hour=$(echo $1 | grep -o '^[0-9]\{2\}');
+    minute=$(echo $1 | grep -o '\:\{1\}[0-9]\{2\}$' | sed 's#\:##')
+  elif [[ ${#1} -eq 4 ]]; then
+    # 0800 or 8:00
+    if [[ $1 = *":"* ]]; then
+      hour=$(echo $1 | grep -o '^[0-9]\{1\}'); hour="0$hour";
+      minute=$(echo $1 | grep -o '\:[0-9]\{2\}$' | sed 's#\:##')
+    else
+      hour=$(echo $1 | grep -o '^[0-9]\{2\}'); minute=$(echo $1 | grep -o '[0-9]\{2\}$')
+    fi
+  elif [[ ${#1} -eq 3 ]]; then
+    # 800
+    hour=$(echo $1 | grep -o '^[1-9]\{1\}'); hour="0$hour";
+    minute=$(echo $1 | grep -o '[0-9]\{2\}$')
+  else
+    # ?????
+    hour=""; mintue=""
+  fi
+  echo "$hour $minute"
 }
 
 function test_timestamp {
-  k=$(echo $1 | grep -oP '\d{2}:*\d{2}')
+  k=$(echo "$1" | grep -o '[0-9][0-9]\ [0-9][0-9]')
   logger_debug "test_timestamp: '$1' => '$k'"
-  [ $k == $1 ] && exit 0 || exit 1
+  [ "$k" == "$1" ] && exit 0 || exit 1
 }
 
 function test_break {
-  k=$(echo $1 | grep -oP '\d*')
+  k=$(echo $1 | grep -o '[0-9]*')
   logger_debug "test_break: '$1' => '$k'"
   [ $k == $1 ] && exit 0 || exit 1
 }
@@ -281,8 +311,7 @@ function time_to_decimal_time {
     t2m=$((t2m-t1m))
 
     # t1h, t1m not relevant any more.
-    unset t1h
-    unset t1m
+    unset t1h ; unset t1m
 
     # Fix third argument
     if [ ! -z "$t3m" ] && [ "$t3m" -gt 0 ] # is not empty or negative
@@ -320,26 +349,20 @@ function time_to_decimal_time {
 }
 
 function calculate_time_with_parameters {
-  # start_time = $1
-  # stop_time = $2
-  # break_minutes = $3
-  # project = $4
-
-  # TODO: Parsing.
-  # Make the examples:
-  # 0900 => h:09, m:00
-  # 09:00 => h:09, m:00
-  # 25:60 => Raise error
+  # start_time = $1(hh mm)
+  # stop_time = $2(hh mm)
+  # break_minutes = $3(mm)
+  # project = $4(string)
 
   t1h=$(echo "${1:0:2}")
-  t1m=$(echo "${1:2:4}")
+  t1m=$(echo "${1:3:5}")
   t2h=$(echo "${2:0:2}")
-  t2m=$(echo "${2:2:4}")
+  t2m=$(echo "${2:3:5}")
   t3m=$3
   project=$4
 
-  echo "Times: $t1h:$t1m, $t2h:$t2m, $t3m"
   dec_time=$(time_to_decimal_time $t1h $t1m $t2h $t2m $t3m)
+  echo "Times: $t1h:$t1m, $t2h:$t2m, $t3m. Decimal time: $dec_time"
 
   echo "Save this to $proj_name project log? y/n"
   read confirm
@@ -426,21 +449,40 @@ while [[ $# -ge 1 ]]; do
       esac
       action="log time for"
 
+      if [[ -z "$2" ]]; then
+        echo "What start hour:minute?"
+        read start_timestamp
+      else
+        start_timestamp=$2
+      fi
+      if [[ -z "$3" ]]; then
+        echo "What end hour:minute?"
+        read end_timestamp
+      else
+        end_timestamp=$3
+      fi
+      if [[ -z "$4" ]]; then
+        echo "How large of a break(in minutes)?"
+        read break_time
+      else
+        break_time=$4
+      fi
+
       logger_debug "times: $2 $3 $4"
 
-      start_time=$(parse_timestamp $2)
-      k="$(test_timestamp $2)"
-      [ $? -eq 0 ] || { echo "'$2' is not a number!"; usage 1; }
+      start_time=$(parse_timestamp $start_timestamp)
+      k=$(test_timestamp "$start_time")
+      [ $? -eq 0 ] || { echo "'$start_time' is not a number!"; echo "$k"; usage 1; }
 
-      stop_time=$(parse_timestamp $3)
-      k="$(test_timestamp $3)"
-      [ $? -eq 0 ] || { echo "'$3' is not a number!"; usage 1; }
+      stop_time=$(parse_timestamp $end_timestamp)
+      k=$(test_timestamp "$end_time")
+      [ $? -eq 0 ] || { echo "'$end_time' is not a number!"; echo "$k"; usage 1; }
 
-      break_minutes=$4
-      k="$(test_break $4)"
-      [ $? -eq 0 ] || { echo "'$4' is not a number!"; usage 1; }
+      break_minutes=$break_time
+      k="$(test_break $break_time)"
+      [ $? -eq 0 ] || { echo "'$break_time' is not a number!"; usage 1; }
 
-      logger_debug "Inputs: Start:$2 End:$3 Break:$4"
+      logger_debug "Inputs: Start:$start_timestamp End:$end_timestamp Break:$break_time"
       logger_debug "Parsed: Start:$start_time End:$stop_time Break:$break_minutes"
 
       shift; shift; shift
@@ -489,13 +531,12 @@ if [ "$specify_project" != "n" ]; then
     proj_name=$(get_project_from_short $proj_name) ;
     logger_debug "Specifying a project with short_name '$proj_name'" ;
   else
-    logger_debug "WTF MOM";
-    echo "Here are the projects you have created:" ;
-    echo "$all_projects" ;
-    echo "What project are you trying to $action?" ;
-    read prompt_new_proj_name ;
-    proj_name=$prompt_new_proj_name ;
-    proj_name=$(get_project_from_all_projects $prompt_new_proj_name) ;
+    echo "Here are the projects you have created:"
+    echo "$all_projects"
+    echo "What project are you trying to $action?"
+    read prompt_new_proj_name
+    proj_name=$prompt_new_proj_name
+    proj_name=$(get_project_from_all_projects $prompt_new_proj_name)
   fi
   [ -z "$proj_name" ] && { echo "'$old_proj_name' is not a valid project"; usage 1; }
 
@@ -536,9 +577,9 @@ elif [ ! -z "$show_logs" ]; then
   else
     echo "Can't show logs if no projects exists"
   fi
-elif [ ! -z $start_time ]; then
+elif [ ! -z "$start_time" ]; then
   if [ ! -z "$proj_name" ]; then
-    calculate_time_with_parameters $start_time $stop_time $break_minutes $proj_name
+    calculate_time_with_parameters "$start_time" "$stop_time" $break_minutes $proj_name
   fi
 fi
 
