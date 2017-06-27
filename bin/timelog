@@ -20,6 +20,7 @@ function usage {
            #[times: \d{2}:{0,1}\d{2}]*
     #EOM
     echo "Usage"
+    [ $1 -eq 1 ] && exit 1
     exit 0
 }
 
@@ -143,7 +144,7 @@ function get_project_from_all_projects {
 }
 
 function get_project_from_short {
-  echo "$all_projects" | grep "[$1]" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
+  echo "$all_projects" | grep "\[$1\]" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
 }
 
 function describe_project {
@@ -337,10 +338,13 @@ function calculate_time_with_parameters {
   t3m=$3
   project=$4
 
-  echo "times: $t1h:$t1m, $t2h:$t2m, $t3m"
+  echo "Times: $t1h:$t1m, $t2h:$t2m, $t3m"
   dec_time=$(time_to_decimal_time $t1h $t1m $t2h $t2m $t3m)
-  write_to_disk $project $dec_time $1 $2 $3
 
+  echo "Save this to $proj_name project log? y/n"
+  read confirm
+  logger_debug "Confirm: '$confirm'"
+  [ "$confirm" = "y" ] && write_to_disk $project $dec_time $1 $2 $3
 }
 
 # main
@@ -355,15 +359,31 @@ while [[ $# -ge 1 ]]; do
           shift ; shift
         ;;
         *)
-          usage
+          usage 1
         ;;
       esac
     ;;
     show)
       case "$2" in
         logs)
-          show_logs=$3
-          shift ; shift ; shift
+          show_logs="y"
+          if [ ! -z "$3" ]; then
+            proj_name=$3
+            short_matched="y"
+            action="show logs for?"
+          else
+            short_matched="n"
+          fi
+
+          if [ ! -z "$4" ]; then
+            show_logs_week=$4
+            shift
+          fi
+
+          shift ; shift
+        ;;
+        *)
+          shift
         ;;
       esac
     ;;
@@ -371,6 +391,7 @@ while [[ $# -ge 1 ]]; do
       case "$2" in
         project)
           delete_project="y"
+          specify_project="n"
           shift ; shift
         ;;
         *)
@@ -398,28 +419,26 @@ while [[ $# -ge 1 ]]; do
     log)
       case "$2" in
         project)
-          echo "short proj name matched: $3"
           proj_name=$3
           short_matched="y"
           shift ; shift
         ;;
-        *)
-          shift
-        ;;
       esac
+      action="log time for"
+
+      logger_debug "times: $2 $3 $4"
 
       start_time=$(parse_timestamp $2)
       k="$(test_timestamp $2)"
-      [ $? -eq 0 ] || { echo "$2 is not a number!"; usage; }
+      [ $? -eq 0 ] || { echo "'$2' is not a number!"; usage 1; }
 
       stop_time=$(parse_timestamp $3)
       k="$(test_timestamp $3)"
-      [ $? -eq 0 ]  || { echo "$3 is not a number!"; usage; }
+      [ $? -eq 0 ] || { echo "'$3' is not a number!"; usage 1; }
 
       break_minutes=$4
       k="$(test_break $4)"
-
-      [ $? -eq 0 ]  || { echo "$4 is not a number!"; usage; }
+      [ $? -eq 0 ] || { echo "'$4' is not a number!"; usage 1; }
 
       logger_debug "Inputs: Start:$2 End:$3 Break:$4"
       logger_debug "Parsed: Start:$start_time End:$stop_time Break:$break_minutes"
@@ -435,6 +454,7 @@ while [[ $# -ge 1 ]]; do
       case "$2" in
         projects)
           list_projects="y"
+          specify_project="n"
           shift ; shift
         ;;
         *)
@@ -450,20 +470,35 @@ while [[ $# -ge 1 ]]; do
   esac
 done
 
-# Get the project to work on
+# if united, init
 if [ -z "$uninstall" ]; then
   k=$(is_program_inited)
   if [ $? -eq 1 ]; then init_program; fi
 fi
 
-if [ "$specify_project" != "y" ]; then
-  get_all_projects
-  logger_debug "Project input: $proj_name"
-  [ "$short_matched" = "y" ] && {
+# Get all projects for the program
+get_all_projects
+
+# If the program requires a project
+if [ "$specify_project" != "n" ]; then
+  logger_debug "Project input: '$proj_name'"
+  old_proj_name=$proj_name
+  logger_debug "Is short matched? '$short_matched'"
+
+  if [ "$short_matched" = "y" ]; then
     proj_name=$(get_project_from_short $proj_name) ;
-  } || {
-    proj_name=$(get_project $proj_name) ;
-  }
+    logger_debug "Specifying a project with short_name '$proj_name'" ;
+  else
+    logger_debug "WTF MOM";
+    echo "Here are the projects you have created:" ;
+    echo "$all_projects" ;
+    echo "What project are you trying to $action?" ;
+    read prompt_new_proj_name ;
+    proj_name=$prompt_new_proj_name ;
+    proj_name=$(get_project_from_all_projects $prompt_new_proj_name) ;
+  fi
+  [ -z "$proj_name" ] && { echo "'$old_proj_name' is not a valid project"; usage 1; }
+
   logger_debug "Project is set as '$proj_name'"
 fi
 
@@ -472,7 +507,7 @@ if [ ! -z $new_project ]; then
 fi
 
 if [ ! -z "$list_projects" ]; then
-    if [ ! -z "$all_projects" ]; then
+  if [ ! -z "$all_projects" ]; then
       echo "The projects are:"
       echo "$all_projects"
     else
@@ -486,36 +521,25 @@ then
   delete_project
   exit 0
 elif [ ! -z "$show_logs" ]; then
+  if [ -z "$show_logs_week" ]; then
+    echo "For what week?"
+    read week
+    show_logs_week=$week
+  fi
+
   if [ ! -z "$all_projects" ]; then
-    if [ -z "$proj_name" ]; then
-      #echo "You did not specify a project to log time for."
-      #echo "Here are the projects you have created:"
-      #echo "$all_projects"
-      #echo "What project are you trying to log time for?"
-      #read prompt_new_proj_name
-      #proj_name=$prompt_new_proj_name
-      #proj_name=$(get_project_from_all_projects $prompt_new_proj_name)
-      proj_name="Qvantel"
+    if [ ! -z "$proj_name" ]; then
       get_project_meta_info $proj_name
-      logger_debug "Showing logs for $proj_name given week $show_logs"
+      logger_debug "Showing logs for $proj_name given week $show_logs_week"
+      week_stats $show_logs_week "$(cat $log_path/$proj_name.logs)"
     fi
-    week_stats $show_logs "$(cat $log_path/$proj_name.logs)"
+  else
+    echo "Can't show logs if no projects exists"
   fi
 elif [ ! -z $start_time ]; then
-  if [ -z "$proj_name" ]; then
-    if [ ! -z "$all_projects" ]; then
-      echo "You did not specify a project to log time for."
-      echo "Here are the projects you have created:"
-      echo "$all_projects"
-      echo "What project are you trying to log time for?"
-      read prompt_new_proj_name
-      proj_name=$prompt_new_proj_name
-      proj_name=$(get_project_from_all_projects $prompt_new_proj_name)
-    else
-      echo "No projects. Please create a project."
-      exit 1
-    fi
+  if [ ! -z "$proj_name" ]; then
+    calculate_time_with_parameters $start_time $stop_time $break_minutes $proj_name
   fi
-  calculate_time_with_parameters $start_time $stop_time $break_minutes $proj_name
 fi
 
+exit 0
