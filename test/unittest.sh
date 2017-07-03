@@ -62,6 +62,8 @@ else
   red "FAILED:"; echo "$test_case_name"; exit 1;
 fi
 
+# -----------------------------------------------------------------------
+
 test_case_name="A log entry should be created to file"
 timelog $debug --dev $dir log project ts 0800 1000 0 <<END
 y
@@ -76,18 +78,45 @@ else
   red "FAILED:"; echo "$test_case_name"; echo "exit code:'$code' : amount of lines: '$k'"; exit 1;
 fi
 
-echo "hi"
+# -----------------------------------------------------------------------
+
 dec_time=$(echo "$logs" | grep -o '\[2\]' | grep -o '2')
 test_case_name="Decimal time should equal to 2"
 if [[ ! -z "$logs" && $dec_time -eq 2 ]]; then
   green "PASSED:"; echo "$test_case_name";
 else red "FAILED:"; echo "$test_case_name"; echo "should not be empty: '$logs' : should be 2:'$dec_time'"; exit 1; fi
 
+# -----------------------------------------------------------------------
+
 mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
 test_case_name="Military time should equal to 02:00"
 if [[ ! -z "$logs" && $mil_time = "02:00" ]]; then
   green "PASSED:"; echo "$test_case_name";
 else red "FAILED:"; echo "$test_case_name"; echo "$logs : $mil_time"; exit 1; fi
+
+# -----------------------------------------------------------------------
+test_case_name="A log entry should be created to file x2 - with obscure time"
+timelog $debug --dev $dir log project ts 0840 1802 34 <<END
+y
+END
+code=$?
+logs=$(cat "$dir/Test.logs" | head -n2 | tail -n1)
+echo "LOGS:$logs"
+k=$(echo "$logs" | wc -l)
+
+dec_time=$(echo "$logs" | grep -o '\[[0-9]*\.*[0-9]*\]' | grep -o '[0-9]*\.[0-9]*')
+test_case_name="Decimal time should equal to 2"
+if [[ ! -z "$logs" && $dec_time = "8.8" ]]; then
+  green "PASSED:"; echo "$test_case_name";
+else red "FAILED:"; echo "$test_case_name"; echo "should not be empty: '$logs' : should be 2:'$dec_time'"; exit 1; fi
+
+# -----------------------------------------------------------------------
+
+mil_time=$(echo "$logs" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
+test_case_name="Military time should equal to 02:00"
+if [[ ! -z "$logs" && $mil_time = "08:48" ]]; then
+  green "PASSED:"; echo "$test_case_name";
+else red "FAILED:"; echo "$test_case_name"; echo "should not be empty:'$logs' : should be 08:48:'$mil_time'"; exit 1; fi
 
 echo "-----------------"
 echo "Delete project is deleted from filesystem"
