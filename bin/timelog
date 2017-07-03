@@ -50,30 +50,39 @@ function week_stats {
   # $1 = the week to look at
   # $2 = content of a project file(string)
   # RELIES ON THAT $target_hours has been set!
-  l=$(echo "$2" | grep "2017-$1-[1-7]*\/" | grep -o '\[[0-9]\+\.*[0-9]*\]')
+  records=$(echo "$2" | grep "2017-$1-[1-7]*\/")
+  l=$(echo "$records" | grep -o '\[[0-9]\+\.*[0-9]*\]')
+  day=$(echo "$records" | grep -o '\/2017-[0-9]\+-[0-9]\+' | sed 's#^\/##')
   if [ -z $target_hours ]; then { echo "Target hours not specified." ; exit 1 ; } fi
 
   dec_time=0
-  for f in $l; do
-    k=$(echo "$f" | grep -o '[0-9]*\.*[0-9]*')
-    dec_time=$(awk "BEGIN {print ($hours+$k)}")
-  done
+  dec_time_for_day=0
+  if [ ! -z "$records" ]; then
+      echo "Days worked for week $1"
+      while read -r record; do
+        day=$(echo "$record" | grep -o '\/2017-[0-9]\+-[0-9]\+' | sed 's#^\/##')
+        dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | grep -o '[0-9]*\.*[0-9]*')
+        day=$(date -d "$day" +%A)
+        dec_time=$(awk "BEGIN {print ($hours+$dec_time_for_day)}")
+        echo "$day: $dec_time_for_day h"
+      done <<< "$records"
 
-  weekly_info=$(weekly_stats_days "$1" "$2")
-  amount_of_days_worked=$(echo $weekly_info | wc -w)
-  days=$((5-$amount_of_days_worked))
-  remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
-  estimate=$(awk "BEGIN {print ($remaining/$days)}")
+      weekly_info=$(weekly_stats_days "$1" "$2")
+      amount_of_days_worked=$(echo $weekly_info | wc -w)
+      days=$((5-$amount_of_days_worked))
+      remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
+      estimate=$(awk "BEGIN {print ($remaining/$days)}")
 
-  if [ $(awk 'BEGIN{ if (ARGV[1]>0) { print 0 } else { print 1 } }' "$dec_time") -eq 0 ]; then
-    echo "You have worked for $dec_time hours at the following days: $(weekly_stats_days "$1" "$2")"
-    echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
-    echo "$estimate hours for $days more days."
-    [ ! -z "$money" ] && {
-      echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") $currency pre-tax!"
-    }
+        echo "------"
+        echo "You have worked for $dec_time hours at the following days: $(weekly_stats_days "$1" "$2")"
+        echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
+        echo "$estimate hours for $days more days."
+        [ ! -z "$money" ] && {
+          echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") $currency pre-tax!"
+        }
+
   else
-      echo "Nothing worked on week $1 for project $proj_name"
+    echo "Nothing worked on week $1 for project $proj_name"
   fi
 }
 
@@ -244,19 +253,22 @@ function is_program_inited {
 function write_to_disk {
   # $1 = project_name
   # $2 = decimal time
-  # $3 = Start time
-  # $4 = End time
-  # $5 = Break minutes
+  # $3 = military time
+  # $4 = Start time
+  # $5 = End time
+  # $6 = Break minutes
+  # $7 = Note [optional]
   project=$1
   dec_time=$2
-  start_time=$3
-  end_time=$4
-  break_min=$5
-  note=$6
+  mil_time=$3
+  start_time=$(echo "$4" | sed 's#\ ##')
+  end_time=$(echo "$5" | sed 's#\ ##')
+  break_min=$6
+  note=$7
   date=$(date +%Y-%m-%d)
   week_date=$(date +%Y-%V-%u)
   proj_log_path=$(get_log_path_for_project $project)
-  entry="$week_date/$date [$dec_time] ($start_time $end_time $break_min) [$note]"
+  entry="$week_date/$date [$dec_time]{$mil_time} ($start_time $end_time $break_min) [$note]"
   echo "$entry" >> $proj_log_path
   logger_debug "Writing log entry $entry to $proj_log_path"
 }
@@ -301,7 +313,8 @@ function time_to_decimal_time {
 
     if [ "$t1m" -gt "$t2m" ]  # 0830, 1600.
     then
-        # t2's minute is lesser. Add 60 to it and subtrace t2h by one.
+        # t2's minute is lesser. Add 60 to it and subtract t2h by one.
+        # 0725 & 1210 => 0725 & 1170 => ((11-07) => 04, (70-25) => 45)
         t2h=$((t2h-=1))
         t2m=$((t2m+60))
     fi # t1m -gt t2m
@@ -337,11 +350,16 @@ function time_to_decimal_time {
             fi # t3m -lt total_min
         fi # t3m -lt total_min
     fi # ! -z t3m && t3m -gt 0
-    total_start_minutes=$((10#$t1h*60 + 10#$t1m))
-    total_minutes=$((10#$t2h*60 + 10#$t2m))
+
+    # 10# because it might contain leading 0's
+    # total_minutes = ((4*60) => 240, (45) => 45) => 295
+    # total_minutes=$((10#$t2h*60 + 10#$t2m))
 
     dectime=$(awk "BEGIN {print ($t2h+($t2m/60))}")
-    echo $dectime
+    # append 0 so 4:9 => 04:09.
+    if [ ${#t2h} -eq 1 ]; then t2h="0$t2h"; fi
+    if [ ${#t2m} -eq 1 ]; then t2m="0$t2m"; fi
+    echo "$dectime/$t2h:$t2m"
     exit 0
   fi
   logger_debug "Could not compute: $t1h $t1m $t2h $t2m $t3m"
@@ -361,13 +379,15 @@ function calculate_time_with_parameters {
   t3m=$3
   project=$4
 
-  dec_time=$(time_to_decimal_time $t1h $t1m $t2h $t2m $t3m)
-  echo "Times: $t1h:$t1m, $t2h:$t2m, $t3m. Decimal time: $dec_time"
+  both_times=$(time_to_decimal_time $t1h $t1m $t2h $t2m $t3m)
+  dec_time=$(echo $both_times | grep -o '^[0-9]\+\.*[0-9]*')
+  mil_time=$(echo $both_times | grep -o '\/[0-9]\+:[0-9]*' | sed 's#\/##')
+  echo "Times: $t1h:$t1m, $t2h:$t2m, $t3m. Decimal time: $dec_time Military time: $mil_time"
 
   echo "Save this to $proj_name project log? y/n"
   read confirm
   logger_debug "Confirm: '$confirm'"
-  [ "$confirm" = "y" ] && write_to_disk $project $dec_time $1 $2 $3
+  [ "$confirm" = "y" ] && write_to_disk $project $dec_time $mil_time "$1" "$2" "$3"
 }
 
 # main
@@ -557,8 +577,7 @@ if [ ! -z "$list_projects" ]; then
     exit 0
 fi
 
-if [ ! -z "$delete_project" ];
-then
+if [ ! -z "$delete_project" ]; then
   delete_project
   exit 0
 elif [ ! -z "$show_logs" ]; then
