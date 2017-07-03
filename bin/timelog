@@ -11,17 +11,29 @@ function logger_debug {
 }
 
 function usage {
-    #read -r -d '' VAR <<- EOM
-    #Timelog is a script written for keeping track of time for projects.
-    #It will log time inputed via this CLI to store it to the disk in $HOME/.config/timelog/.log.
-
-    #Usage: $(basename $0)
-           #[-p|--project] name
-           #[times: \d{2}:{0,1}\d{2}]*
-    #EOM
-    echo "Usage"
+    echo "Timelog is a script written for keeping track of time for projects."
+    echo "It will log time inputed via this CLI to store it to the disk in \$HOME/.config/timelog/.log."
+    echo ""
+    echo "Usage: $(basename $0)"
+    echo " * log (project_id) (start time, end time, break time)"
+    echo " * list project"
+    echo " * show logs (project_id)(week)"
+    echo " * delete project"
+    echo ""
+    echo "To see examples, run $(basename $0) --examples"
     [ $1 -eq 1 ] && exit 1
     exit 0
+}
+
+function examples {
+  bin=$(basename $0)
+  echo "$bin create project"
+  echo "... follow the prompt text"
+  echo "$bin log project test 08:30 14:00 30"
+  echo "Save this? y/n y"
+  echo "$bin list projects"
+  echo "1. Test[ts]"
+  exit 0
 }
 
 function list_projects {
@@ -30,8 +42,8 @@ function list_projects {
   for file_name in $files; do
     file=$(cat $log_path/def/$file_name)
     name=$(echo "$file" | grep -o 'project_name\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
-    short=$(echo "$file" | grep -o 'short_hand_name\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
-    printf "${it}: $name [$short]\n"
+    id=$(echo "$file" | grep -o 'project_id\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
+    printf "${it}: $name [$id]\n"
     it=$((it+1))
   done
 }
@@ -58,28 +70,29 @@ function week_stats {
   dec_time=0
   dec_time_for_day=0
   if [ ! -z "$records" ]; then
-      echo "Days worked for week $1"
-      while read -r record; do
-        day=$(echo "$record" | grep -o '\/2017-[0-9]\+-[0-9]\+' | sed 's#^\/##')
-        dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | grep -o '[0-9]*\.*[0-9]*')
-        day=$(date -d "$day" +%A)
-        dec_time=$(awk "BEGIN {print ($hours+$dec_time_for_day)}")
-        echo "$day: $dec_time_for_day h"
-      done <<< "$records"
+    echo "Days worked for week $1"
+    while read -r record; do
+      day=$(echo "$record" | grep -o '\/2017-[0-9]\+-[0-9]\+' | sed 's#^\/##')
+      dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | grep -o '[0-9]*\.*[0-9]*')
+      mil_time_for_day=$(echo "$record" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
+      day=$(date -d "$day" +%A | sed  's/^\(.\)/\U\1/') # Sed regex converts first char to uppercase. monday=>Monday
+      dec_time=$(awk "BEGIN {print ($hours+$dec_time_for_day)}")
+      echo "$day: ${dec_time_for_day}h / $mil_time_for_day"
+    done <<< "$records"
 
-      weekly_info=$(weekly_stats_days "$1" "$2")
-      amount_of_days_worked=$(echo $weekly_info | wc -w)
-      days=$((5-$amount_of_days_worked))
-      remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
-      estimate=$(awk "BEGIN {print ($remaining/$days)}")
+    weekly_info=$(weekly_stats_days "$1" "$2")
+    amount_of_days_worked=$(echo $weekly_info | wc -w)
+    days=$((5-$amount_of_days_worked))
+    remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
+    estimate=$(awk "BEGIN {print ($remaining/$days)}")
 
-        echo "------"
-        echo "You have worked for $dec_time hours at the following days: $(weekly_stats_days "$1" "$2")"
-        echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
-        echo "$estimate hours for $days more days."
-        [ ! -z "$money" ] && {
-          echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") $currency pre-tax!"
-        }
+    echo "------"
+    echo "You have worked for $dec_time hours at the following days: $(weekly_stats_days "$1" "$2")"
+    echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
+    echo "$estimate hours for $days more days."
+    [ ! -z "$money" ] && {
+      echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") $currency pre-tax!"
+    }
 
   else
     echo "Nothing worked on week $1 for project $proj_name"
@@ -182,7 +195,7 @@ function get_project_from_all_projects {
   echo "$all_projects" | grep "^$1"  | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
 }
 
-function get_project_from_short {
+function get_project_from_id {
   echo "$all_projects" | grep "\[$1\]" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
 }
 
@@ -191,9 +204,9 @@ function describe_project {
   echo "What would you like to call it?"
   read project_name
 
-  echo "What is a short-hand name you would call it?"
+  echo "What is an ID that you would call it?"
   echo "(This is used to specify which project you would like to submit time to)"
-  read project_short
+  read project_id
 
   echo "What does the project pay(per hour)?"
   read money_per_hour
@@ -209,17 +222,11 @@ function describe_project {
     touch $log_path/def/$project_name
     touch $log_path/$project_name.logs
     echo "project_name=$project_name" > $log_path/def/$project_name ;
-    echo "short_hand_name=$project_short" >> $log_path/def/$project_name ;
+    echo "project_id=$project_id" >> $log_path/def/$project_name ;
     echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name ;
     echo "target_hours=$target_hours" >> $log_path/def/$project_name ;
     echo "currency=$currency" >> $log_path/def/$project_name ;
   }
-}
-
-function set_default_project {
-  proj_short=$1
-  sed 's#default_project\ *\=\ *.*#default_project=$proj_short/g' '$log_path/config'
-  logger_debug "Setting default project to $1"
 }
 
 function init_program {
@@ -390,6 +397,7 @@ function calculate_time_with_parameters {
   [ "$confirm" = "y" ] && write_to_disk $project $dec_time $mil_time "$1" "$2" "$3"
 }
 
+specify_project="n"
 # main
 while [[ $# -ge 1 ]]; do
   case $1 in
@@ -412,11 +420,12 @@ while [[ $# -ge 1 ]]; do
           show_logs="y"
           if [ ! -z "$3" ]; then
             proj_name=$3
-            short_matched="y"
+            id_matched="y"
             action="show logs for?"
           else
-            short_matched="n"
+            id_matched="n"
           fi
+          specify_project="y"
 
           if [ ! -z "$4" ]; then
             show_logs_week=$4
@@ -438,18 +447,10 @@ while [[ $# -ge 1 ]]; do
           shift ; shift
         ;;
         *)
+          usage 1
           shift
         ;;
       esac
-    ;;
-    -sdf|--set-default-project)
-      set_default_project $1
-      logger_debug "Setting project to $1"
-      shift; shift
-    ;;
-    -p|--projects)
-      proj_name=$2
-      shift; shift
     ;;
     --note)
       note=$2
@@ -463,49 +464,21 @@ while [[ $# -ge 1 ]]; do
       case "$2" in
         project)
           proj_name=$3
-          short_matched="y"
+          id_matched="y"
           shift ; shift
         ;;
       esac
+      log_time="y"
+      specify_project="y"
       action="log time for"
+      maybeStart=$2
+      maybeEnd=$3
+      maybeBreak=$4
 
-      if [[ -z "$2" ]]; then
-        echo "What start hour:minute?"
-        read start_timestamp
-      else
-        start_timestamp=$2
-      fi
-      if [[ -z "$3" ]]; then
-        echo "What end hour:minute?"
-        read end_timestamp
-      else
-        end_timestamp=$3
-      fi
-      if [[ -z "$4" ]]; then
-        echo "How large of a break(in minutes)?"
-        read break_time
-      else
-        break_time=$4
-      fi
-
-      logger_debug "times: $2 $3 $4"
-
-      start_time=$(parse_timestamp $start_timestamp)
-      k=$(test_timestamp "$start_time")
-      [ $? -eq 0 ] || { echo "'$start_time' is not a number!"; echo "$k"; usage 1; }
-
-      stop_time=$(parse_timestamp $end_timestamp)
-      k=$(test_timestamp "$end_time")
-      [ $? -eq 0 ] || { echo "'$end_time' is not a number!"; echo "$k"; usage 1; }
-
-      break_minutes=$break_time
-      k="$(test_break $break_time)"
-      [ $? -eq 0 ] || { echo "'$break_time' is not a number!"; usage 1; }
-
-      logger_debug "Inputs: Start:$start_timestamp End:$end_timestamp Break:$break_time"
-      logger_debug "Parsed: Start:$start_time End:$stop_time Break:$break_minutes"
-
-      shift; shift; shift
+      shift
+      [ ! -z "$1" ] && { logger_debug "Shifting $1"; shift ; }
+      [ ! -z "$1" ] && { logger_debug "Shifting $1"; shift ; }
+      [ ! -z "$1" ] && { logger_debug "Shifting $1"; shift ; }
     ;;
     -v)
       logger_debug "Debug is toggled"
@@ -517,16 +490,20 @@ while [[ $# -ge 1 ]]; do
         projects)
           list_projects="y"
           specify_project="n"
-          shift ; shift
-        ;;
-        *)
-          echo "amg"
           shift
         ;;
+        *)
+          usage 1
+        ;;
       esac
+      shift
+    ;;
+    --examples)
+      examples
     ;;
     *)
-      logger_debug "SHIFTING"
+      echo "about to call usage $1"
+      usage 1
       shift
     ;;
   esac
@@ -545,11 +522,11 @@ get_all_projects
 if [ "$specify_project" != "n" ]; then
   logger_debug "Project input: '$proj_name'"
   old_proj_name=$proj_name
-  logger_debug "Is short matched? '$short_matched'"
+  logger_debug "Is ID matched? '$id_matched'"
 
-  if [ "$short_matched" = "y" ]; then
-    proj_name=$(get_project_from_short $proj_name) ;
-    logger_debug "Specifying a project with short_name '$proj_name'" ;
+  if [ "$id_matched" = "y" ]; then
+    proj_name=$(get_project_from_id $proj_name) ;
+    logger_debug "Specifying a project with id_name '$proj_name'" ;
   else
     echo "Here are the projects you have created:"
     echo "$all_projects"
@@ -586,6 +563,7 @@ elif [ ! -z "$show_logs" ]; then
     read week
     show_logs_week=$week
   fi
+	logger_debug "project: $proj_name"
 
   if [ ! -z "$all_projects" ]; then
     if [ ! -z "$proj_name" ]; then
@@ -596,9 +574,47 @@ elif [ ! -z "$show_logs" ]; then
   else
     echo "Can't show logs if no projects exists"
   fi
-elif [ ! -z "$start_time" ]; then
+elif [ ! -z "$log_time" ]; then
+  logger_debug "About to log time"
   if [ ! -z "$proj_name" ]; then
+    if [[ -z "$maybeStart" ]]; then
+      echo "What start hour:minute? (e.g. 8, 8:10, 08:25, 0835)"
+      read start_timestamp
+    else
+      start_timestamp=$maybeStart
+    fi
+    if [[ -z "$maybeEnd" ]]; then
+      echo "What end hour:minute? (e.g. 8, 8:10, 08:25, 0835)"
+      read end_timestamp
+    else
+      end_timestamp=$maybeEnd
+    fi
+    if [[ -z "$maybeBreak" ]]; then
+      echo "How large of a break(in minutes)?"
+      read break_time
+    else
+      break_time=$maybeBreak
+    fi
+
+    logger_debug "times: $2 $3 $4"
+
+    start_time=$(parse_timestamp $start_timestamp)
+    k=$(test_timestamp "$start_time")
+    [ $? -eq 0 ] || { echo "'$start_time' is not a number!"; echo "$k"; usage 1; }
+
+    stop_time=$(parse_timestamp $end_timestamp)
+    k=$(test_timestamp "$end_time")
+    [ $? -eq 0 ] || { echo "'$end_time' is not a number!"; echo "$k"; usage 1; }
+
+    break_minutes=$break_time
+    k="$(test_break $break_time)"
+    [ $? -eq 0 ] || { echo "'$break_time' is not a number!"; usage 1; }
+
+    logger_debug "Inputs: Start:$start_timestamp End:$end_timestamp Break:$break_time"
+    logger_debug "Parsed: Start:$start_time End:$stop_time Break:$break_minutes"
     calculate_time_with_parameters "$start_time" "$stop_time" $break_minutes $proj_name
+  else
+    logger_debug "Could not log time since the project name send to this section was unset."
   fi
 fi
 
