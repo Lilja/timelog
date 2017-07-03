@@ -70,15 +70,24 @@ code=$?
 logs=$(cat "$dir/Test.logs")
 k=$(echo "$logs" | wc -l)
 
-[ $code -eq 1 ] || [ $k -ne 1 ] && {
-  red "FAILED:"; echo "$test_case_name"; echo "$code : $k"; exit 1;
-} || { green "PASSED:"; echo "$test_case_name"; }
+if [[ $code -eq 0 && $k -eq 1 ]]; then
+  green "PASSED:"; echo "$test_case_name";
+else 
+  red "FAILED:"; echo "$test_case_name"; echo "exit code:'$code' : amount of lines: '$k'"; exit 1;
+fi
 
+echo "hi"
 dec_time=$(echo "$logs" | grep -o '\[2\]' | grep -o '2')
 test_case_name="Decimal time should equal to 2"
-[ ! -z "$logs" ] && [ $dec_time -eq 2 ] && {
+if [[ ! -z "$logs" && $dec_time -eq 2 ]]; then
   green "PASSED:"; echo "$test_case_name";
-} || { red "FAILED:"; echo "$test_case_name"; echo "$logs : $dec_time"; exit 1; }
+else red "FAILED:"; echo "$test_case_name"; echo "should not be empty: '$logs' : should be 2:'$dec_time'"; exit 1; fi
+
+mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
+test_case_name="Military time should equal to 02:00"
+if [[ ! -z "$logs" && $mil_time = "02:00" ]]; then
+  green "PASSED:"; echo "$test_case_name";
+else red "FAILED:"; echo "$test_case_name"; echo "$logs : $mil_time"; exit 1; fi
 
 echo "-----------------"
 echo "Delete project is deleted from filesystem"
@@ -88,8 +97,8 @@ timelog $debug --dev $dir delete project <<END
 y
 END
 test_case_name="Deleted project does no longer exists"
-if [ ! -f "$dev/def/Test" ] &&
-   [ ! -f "$dev/Test.logs" ]; then
+if [[ ! -f "$dev/def/Test" &&
+    ! -f "$dev/Test.logs" ]]; then
   green "PASSED:"; echo "$test_case_name";
 else
   red "FAILED:"; echo "$test_case_name";
