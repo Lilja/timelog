@@ -12,14 +12,15 @@ function logger_debug {
 
 function usage {
     echo "Timelog is a script written for keeping track of time for projects."
-    echo "It will log time inputed via this CLI to store it to the disk in \$HOME/.config/timelog/.log."
+    echo "It will log time inputed via this CLI to store it to the disk in \$HOME/.config/timelog/project_id.log."
     echo ""
     echo "Usage: $(basename $0)"
     echo " * log (project_id) (start time, end time, break time)"
     echo " * list project"
-    echo " * show logs (project_id)(week)"
+    echo " * show logs (project_id) (week)"
     echo " * delete project"
     echo ""
+    echo "For debugging, run with -v"
     echo "To see examples, run $(basename $0) --examples"
     [ $1 -eq 1 ] && exit 1
     exit 0
