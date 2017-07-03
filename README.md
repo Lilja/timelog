@@ -1,18 +1,41 @@
 [![Stories in Ready](https://badge.waffle.io/Lilja/timelog.png?label=ready&title=Ready)](https://waffle.io/Lilja/timelog?utm_source=badge)
-Timelog
 
-CLI Utility to log time for different projects.
+# Timelog
+## CLI Utility to log time for different projects.
 
-`./timelog create project`
-to create a new project
+### Installation
+Clone the repository, then just add the `bin` directory to the `$PATH` by running:
 
-`./timelog delete project`
-to delete a project
+`$ cd bin/ && export PATH=$PATH:$PWD/bin/`
 
-`./timelog log start_time end_time break_time_in_minutes`
-to log time for a project given two times and a break time
+This is only temporary though. For being able to consistent run `timelog` wherever you are on the filesystem, please put the export inside a `.profile` or `.zprofile` if you're running `ZSH`.
 
-Install instructions
-Clone the repository, then just add the bin directory to the $PATH by running:
+### Usage
+```
+Timelog is a script written for keeping track of time for projects.
+It will log time inputed via this CLI to store it to the disk in $HOME/.config/timelog/.log.
 
-`cd bin/ && export PATH=$PATH:$PWD/bin/`
+Usage: timelog
+ * log (project_id) (start time, end time, break time)
+ * list project
+ * show logs (project_id)(week)
+ * delete project
+
+To see examples, run $(basename $0) --examples
+```
+
+### Examples
+`timelog create project`
+to create a new project(interactivly)
+
+`timelog list projects`
+to list current projects that are configured
+
+`timelog log project (project id) (start time, end time, break time)`
+to log project for `project id` using `start time` `end time` `break time`
+
+`timelog show logs (project id) (week number)`
+to show logs for a `project id` during `week number`
+
+`timelog delete project`
+to delete a project(interactivly)
