@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/Lilja/timelog.svg?branch=master)](https://travis-ci.org/Lilja/timelog)
 [![Stories in Ready](https://badge.waffle.io/Lilja/timelog.png?label=ready&title=Ready)](https://waffle.io/Lilja/timelog?utm_source=badge)
 
 # Timelog
