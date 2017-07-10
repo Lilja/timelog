@@ -24,17 +24,19 @@ Timelog is a script written for keeping track of time for projects.
 It will log time inputed via this CLI to store it to the disk in $HOME/.config/timelog/project_id.log.
 
 Usage: timelog
- - log (project_id) (start time, end time, break time)
+ - log (project_id) (start time) (end time) (break time)
  - list project
- - show logs (project_id) (week)
+ - show logs (project_id) (week) [year]
  - delete project
 
 For debugging, run with -v
 
 To see examples, run timelog --examples
+All arguments in parenthesis will be prompted to the user if not supplied
+All arguments in brackets are optional which will have a default value if not supplied.
 ```
 
-### Examples
+### Commands
 `timelog create project`
 
 to create a new project(interactively)
@@ -43,14 +45,142 @@ to create a new project(interactively)
 
 to list current projects that are configured
 
-`timelog log project (project id) (start time, end time, break time)`
+`timelog log project (project id) (start time) (end time) (break time)`
 
 to log project for `project id` using `start time` `end time` `break time`
 
-`timelog show logs (project id) (week number)`
+`timelog show logs (project id) (week) (year)`
 
-to show logs for a `project id` during `week number`
+to show logs for a `project id` during `week number` and `year`
 
 `timelog delete project`
 
 to delete a project(interactively)
+
+### Examples
+Creating a project
+```
+timelog create project
+Creating a new project
+What would you like to call it?
+  Test
+What is an ID that you would call it?
+(This is used to specify which project you would like to submit time to)
+  ts
+What does the project pay(per hour)?
+  50
+What is the target hours per week?
+  40
+What is the currency paid?
+  kr
+```
+
+Listing the projects that are created
+```
+timelog list projects
+The projects are:
+1: Test [ts]
+```
+
+Logging time for a project
+```
+timelog log project ts 08:00 15:30 45
+Times: 08:00, 15:30, 45. Decimal time: 6.75 Military time: 06:45
+Save this to Test project log? y/n
+y
+```
+
+Showing logs for a project given a week
+
+```
+timelog show logs ts 28
+Days worked for week 28
+Monday: 6.75h / 06:45
+------
+You have worked for 6.75 hours at the following days: Monday
+You have 33.25 hours out of 40 hours giving you an estimate of
+8.3125 hours for 4 more days.
+You have earned 337.5 kr pre-tax!
+
+```
+
+Deleting a project
+```
+timelog delete project
+`The projects
+1: Test [ts]
+Which project do you want deleted?
+1
+Are you sure you want to delete it? (y/n)
+y
+```
+
+
+### Documentation
+`log_path=$HOME/.config/timelogs`
+
+The program will default to `$log_path` for init configuration and log storage.
+
+The `def` folder contains project definition which is used as meta-data for the project.
+
+`config` file contains program wide configuration. The program will create a default config-file if it does not exist in `$log_path`
+
+`${project_name}.logs` contains the log entries for the days that the user has created logs.
+
+The program will read from `$log_path` and list the projects that are created if `project id` has not been specified
+#### Argument documentation
+##### Create project
+`timelog create project`
+
+`create project` is keywords.
+
+The program will prompt for input after it has been invoked.
+
+---
+
+##### List projects
+`timelog list projects`
+
+`list projects` is keywords.
+
+---
+##### Log project
+`timelog log project (project id) (start_time) (end time) (break time)`
+
+`log project` is keywords.
+
+`project id` Optional/prompted. Is an ID that was specified during the creation.
+
+`start time` Optional/prompted. Is a timestamp to begin logging time from. `8, 8:00, 800, 08:00, 0800` is all valid and mean the same thing.
+
+`end time` Optional/prompted. Is a timestamp to end logging time. `8, 8:00, 800, 08:00, 0800` is all valid and mean the same thing.
+
+`break time` Optional/prompted. Is the total amount of minutes to deduct from the calculation. Enter `0` for no breaks.
+
+---
+
+##### Show logs
+`timelog show logs (project id) (week) (year)`
+
+`show logs` is keywords.
+
+`project id` Optional/prompted. Is an ID that was specified during the creation.
+
+`week` Optional/prompted. The week to view logs from.
+
+`year` Optional. The year to view logs from. Defaults to the current year.
+
+---
+
+##### Delete project
+`timelog delete project`
+
+`delete project` is keywords. 
+
+The program will prompt for which project to delete.
+
+---
+
+### Testing
+`timelog` uses [shunit2](https://github.com/kward/shunit2) for unit tests. In order to run the unit tests, please use the `test_dep.sh` script to download the dependency
+

@@ -5,9 +5,10 @@ sudo: false
 before_script:
   - chmod +x test/unittest.sh
   - chmod +x bin/timelog
+  - chmod +x test/test_dep.sh
   - export PATH=$PATH:$PWD/bin/
   - pushd test/
-  - curl -L "https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/shunit2/shunit2-2.1.6.tgz" | tar zx
+  - ./test_dep.sh
   - popd
 
 script:

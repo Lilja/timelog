@@ -128,7 +128,6 @@ testShowWeeklyLogsEmpty() {
   current_year=$(date +%Y)
   today=$(date +%A)
   capture=$(timelog --dev $dir show logs ts $current_week)
-  echo "$capture"
   cmd=$(grep -q "Nothing worked on week $current_week year $current_year for project Test" <<< "$capture"; echo $?)
   assertTrue "When nothing was logged, the output wasn't nothing" "[ $cmd -eq 0 ]"
 
