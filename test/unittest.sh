@@ -2,139 +2,151 @@
 
 if [[ $1 = "-v" ]]; then debug="-v"
 else debug=""; fi
+
+# Clean test directory if need to
+[ -d dev ] && rm -r dev/
+
 # Create test directory
 mkdir dev/
 dir=$(echo "$PWD/dev")
 
-echo "-----------------"
-echo "     Tests"
-echo "-----------------"
-green() { echo -ne "$(tput setaf 2)$*$(tput setaf 9) "; }
-red() { echo -ne "$(tput setaf 1)$*$(tput setaf 9) "; }
+testFileSystem(){
+  touch foo
+  assertTrue "Can not create files on filesystem" "[ -f foo ]"
+  rm foo
+}
 
-test_case_name="Can create files on filesystem"
-touch foo
-if [ -f foo ]; then green "PASSED"; echo "$test_case_name"
-else red "FAILED:"; echo "$test_case_name"; fi
-rm foo
-
-# Test of create project
-timelog $debug --dev $dir create project <<END
+createProjectTest() {
+  if [[ $1 -eq 5 ]]; then
+timelog $debug --dev $dir create project > /dev/null <<END
 Test
 ts
 140
 40
 kr
 END
+  fi
+}
 
-test_case_name="Created project should have def. and .logs file"
-target=$(grep -o 'target_hours\ *\=\ *40' $dir/def/Test)
-if [[ -f "$dir/def/Test" &&
-    -f "$dir/Test.logs"  &&
-    ! -z $target ]]; then
-  green "PASSED:"; echo "$test_case_name"
-else
-  red "FAILED:"; echo "$test_case_name"
-  echo "$(test -f $dir/def/Test ; echo $?) : $(test -f $dir/Test.logs ; echo $?) : $(test ! -z $target ; echo $?) "
-  exit 1
-fi
-
-echo "-----------------"
-echo "List projects"
-echo "-----------------"
-k=$(timelog $debug --dev $dir list projects)
-match=$(echo "$k" | grep "1:\ Test\ \[ts\]")
-test_case_name="List projects should list the newly created project"
-[ -z "$match" ] && {
-  red "FAILED:"; echo "$test_case_name"; exit 1;
-} || { green "PASSED"; echo "$test_case_name"; }
-
-echo "-----------------"
-echo "Log time for given project"
-echo "-----------------"
-test_case_name="A log entry should not be created if aborted"
-timelog $debug --dev $dir log project ts 0800 1000 0 <<END
-n
-END
-if [[ -f "$dir/Test.logs" && $(cat "$dir/Test.logs" | wc -l) -eq 0 ]]; then
-  green "PASSED:"; echo "$test_case_name";
-else
-  red "FAILED:"; echo "$test_case_name"; exit 1;
-fi
-
-# -----------------------------------------------------------------------
-
-test_case_name="A log entry should be created to file"
-timelog $debug --dev $dir log project ts 0800 1000 0 <<END
-y
-END
-code=$?
-logs=$(cat "$dir/Test.logs")
-k=$(echo "$logs" | wc -l)
-
-if [[ $code -eq 0 && $k -eq 1 ]]; then
-  green "PASSED:"; echo "$test_case_name";
-else 
-  red "FAILED:"; echo "$test_case_name"; echo "exit code:'$code' : amount of lines: '$k'"; exit 1;
-fi
-
-# -----------------------------------------------------------------------
-
-dec_time=$(echo "$logs" | grep -o '\[2\]' | grep -o '2')
-test_case_name="Decimal time should equal to 2"
-if [[ ! -z "$logs" && $dec_time -eq 2 ]]; then
-  green "PASSED:"; echo "$test_case_name";
-else red "FAILED:"; echo "$test_case_name"; echo "should not be empty: '$logs' : should be 2:'$dec_time'"; exit 1; fi
-
-# -----------------------------------------------------------------------
-
-mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
-test_case_name="Military time should equal to 02:00"
-if [[ ! -z "$logs" && $mil_time = "02:00" ]]; then
-  green "PASSED:"; echo "$test_case_name";
-else red "FAILED:"; echo "$test_case_name"; echo "$logs : $mil_time"; exit 1; fi
-
-# -----------------------------------------------------------------------
-test_case_name="A log entry should be created to file x2 - with obscure time"
-timelog $debug --dev $dir log project ts 0840 1802 34 <<END
-y
-END
-code=$?
-logs=$(cat "$dir/Test.logs" | head -n2 | tail -n1)
-echo "LOGS:$logs"
-k=$(echo "$logs" | wc -l)
-
-dec_time=$(echo "$logs" | grep -o '\[[0-9]*\.*[0-9]*\]' | grep -o '[0-9]*\.[0-9]*')
-test_case_name="Decimal time should equal to 2"
-if [[ ! -z "$logs" && $dec_time = "8.8" ]]; then
-  green "PASSED:"; echo "$test_case_name";
-else red "FAILED:"; echo "$test_case_name"; echo "should not be empty: '$logs' : should be 2:'$dec_time'"; exit 1; fi
-
-# -----------------------------------------------------------------------
-
-mil_time=$(echo "$logs" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
-test_case_name="Military time should equal to 02:00"
-if [[ ! -z "$logs" && $mil_time = "08:48" ]]; then
-  green "PASSED:"; echo "$test_case_name";
-else red "FAILED:"; echo "$test_case_name"; echo "should not be empty:'$logs' : should be 08:48:'$mil_time'"; exit 1; fi
-
-echo "-----------------"
-echo "Delete project is deleted from filesystem"
-echo "-----------------"
-timelog $debug --dev $dir delete project <<END
+deleteProjectTest() {
+  if [[ $1 -eq 5 ]]; then
+timelog $debug --dev $dir delete project > /dev/null << END
 1
 y
 END
-test_case_name="Deleted project does no longer exists"
-if [[ ! -f "$dev/def/Test" &&
-    ! -f "$dev/Test.logs" ]]; then
-  green "PASSED:"; echo "$test_case_name";
-else
-  red "FAILED:"; echo "$test_case_name";
-  exit 1
-fi
+  fi
+}
 
-ls dev/def/
-rm dev/config
-rmdir dev/def/
-rmdir dev/
+testCreateAndDeleteProject() {
+  createProjectTest 5
+  code=$?
+  target=$(grep -o 'target_hours\ *\=\ *40' $dir/def/Test)
+  assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
+  assertTrue "Definition file could not be created" "[ -f $dir/def/Test ]"
+  assertTrue "Log file could not be created" "[ -f $dir/Test.logs ]"
+  assertTrue "Target hours was not retrieved" "[ ! -z $target ]"
+
+  deleteProjectTest 5
+  code=$?
+  assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
+  assertTrue "Definition file was not deleted" "[ ! -f $dir/def/Test ]"
+  assertTrue "Log file was not deleted" "[ ! -f $dir/Test.logs ]"
+}
+
+testListProjects() {
+  createProjectTest 5
+  k=$(timelog $debug --dev $dir list projects)
+  code=$?
+  match=$(echo "$k" | grep "1:\ Test\ \[ts\]")
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "List projects did not print out the created project" "[ ! -z '$match' ]"
+  deleteProjectTest 5
+}
+
+testLogProject() {
+  createProjectTest 5
+timelog $debug --dev $dir log project ts 0800 1000 0 <<END
+n
+END
+  code=$?
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "A log entry was created when specified not to create" "[ $(cat $dir/Test.logs | wc -l) -eq 0 ]"
+
+
+timelog $debug --dev $dir log project ts 0800 1000 0 <<END
+y
+END
+  code=$?
+  logs=$(cat "$dir/Test.logs")
+  amount_of_logs=$(cat $dir/Test.logs 2>/dev/null | wc -l)
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "A log entry was not created" "[ $amount_of_logs -eq 1 ]"
+
+  dec_time=$(echo "$logs" | grep -o '\[2\]' | grep -o '2')
+  mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
+  assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
+  assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
+  deleteProjectTest 5
+}
+
+testLogProjectwithObscureTime() {
+  createProjectTest 5
+
+timelog $debug --dev $dir log project ts 0840 1802 34 <<END
+y
+END
+  code=$?
+  logs=$(cat "$dir/Test.logs")
+
+  dec_time=$(echo "$logs" | grep -o '\[[0-9]*\.*[0-9]*\]' | grep -o '[0-9]*\.[0-9]*')
+  mil_time=$(echo "$logs" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
+  assertTrue "Decimal time did not equal 8.8" "[ $dec_time = '8.8' ]"
+  assertTrue "Decimal time did not equal 08:48" "[ $mil_time = '08:48' ]"
+
+  deleteProjectTest 5
+}
+
+testShowWeeklyLogs() {
+  createProjectTest 5
+  current_week=$(date +%V)
+  today=$(date +%A)
+timelog $debug --dev $dir log project ts 0840 1802 34 << END
+y
+END
+  capture=$(timelog --dev $dir show logs ts $current_week)
+  cmd=$(grep -q "Days worked for week $current_week" <<< $capture ; echo $?)
+  assertTrue "Weekly stats for $today was recorded" "[ $cmd -eq 0 ]"
+  cmd=$(grep -q "$today: 8\.8h \/ 08:48" <<< $capture ; echo $?)
+  assertTrue "Today($today)'s decimal time and/or military time was not equal to 8.8h/08:48" "[ $cmd -eq 0 ]"
+
+  deleteProjectTest 5
+}
+
+testShowWeeklyLogsEmpty() {
+  createProjectTest 5
+  current_week=$(date +%V)
+  current_year=$(date +%Y)
+  today=$(date +%A)
+  capture=$(timelog --dev $dir show logs ts $current_week)
+  echo "$capture"
+  cmd=$(grep -q "Nothing worked on week $current_week year $current_year for project Test" <<< "$capture"; echo $?)
+  assertTrue "When nothing was logged, the output wasn't nothing" "[ $cmd -eq 0 ]"
+
+  deleteProjectTest 5
+}
+
+# Days worked for week 28
+# Monday: 8.8h / 08:48
+# ------
+# You have worked for 3.66667 hours at the following days: Monday
+# You have 36.3333 hours out of 40 hours giving you an estimate of
+# 9.08333 hours for 4 more days.
+# You have earned 513.334 kr pre-tax!
+
+# timelog $debug --dev $dir show logs ts $(date +%V)
+# code=$?
+
+rm -r $dir/
+
+
+. shunit2-2.1.6/src/shunit2

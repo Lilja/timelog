@@ -54,26 +54,33 @@ function get_project_meta_info {
   target_hours=$(echo "$file" | grep -o 'target_hours\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
   money=$(echo "$file" | grep -o 'money_per_hour\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
   currency=$(echo "$file" | grep -o 'currency\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
-  logger_debug "target_hours: $target_hours"
+  logger_debug "Target_hours: $target_hours"
   logger_debug "Money: $money"
   logger_debug "Currency: $currency"
 }
 
 function week_stats {
-  # $1 = the week to look at
-  # $2 = content of a project file(string)
-  # RELIES ON THAT $target_hours has been set!
-  records=$(echo "$2" | grep "2017-$1-[1-7]*\/")
-  l=$(echo "$records" | grep -o '\[[0-9]\+\.*[0-9]*\]')
-  day=$(echo "$records" | grep -o '\/2017-[0-9]\+-[0-9]\+' | sed 's#^\/##')
+  # $1 = content of a project file(string)
+  # $2 = the week to look at
+  # $3 = the year to look at
+  # RELIES ON THAT global variable $target_hours has been set!
+  file_contents=$1
+  week=$2
+  year=$3
+  logger_debug "project name: '$proj_name'"
+  logger_debug "Week: '$week'"
+  logger_debug "Year: '$year'"
+  records=$(echo "$file_contents" | grep "$year-$week-[1-7]*\/")
+  day=$(echo "$records" | grep -o "\/$year-[0-9]\+-[0-9]\+" | sed 's#^\/##')
   if [ -z $target_hours ]; then { echo "Target hours not specified." ; exit 1 ; } fi
 
   dec_time=0
   dec_time_for_day=0
+  # Calculate how much time has been spent on a week
   if [ ! -z "$records" ]; then
-    echo "Days worked for week $1"
+    echo "Days worked for week $week"
     while read -r record; do
-      day=$(echo "$record" | grep -o '\/2017-[0-9]\+-[0-9]\+' | sed 's#^\/##')
+      day=$(echo "$record" | grep -o "\/$year-[0-9]\+-[0-9]\+" | sed 's#^\/##')
       dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | grep -o '[0-9]*\.*[0-9]*')
       mil_time_for_day=$(echo "$record" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
       day=$(date -d "$day" +%A | sed  's/^\(.\)/\U\1/') # Sed regex converts first char to uppercase. monday=>Monday
@@ -81,14 +88,14 @@ function week_stats {
       echo "$day: ${dec_time_for_day}h / $mil_time_for_day"
     done <<< "$records"
 
-    weekly_info=$(weekly_stats_days "$1" "$2")
+    weekly_info=$(weekly_stats_days "$file_contents" "$week" "$year")
     amount_of_days_worked=$(echo $weekly_info | wc -w)
     days=$((5-$amount_of_days_worked))
     remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
     estimate=$(awk "BEGIN {print ($remaining/$days)}")
 
     echo "------"
-    echo "You have worked for $dec_time hours at the following days: $(weekly_stats_days "$1" "$2")"
+    echo "You have worked for $dec_time hours at the following days: $weekly_info"
     echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
     echo "$estimate hours for $days more days."
     [ ! -z "$money" ] && {
@@ -96,13 +103,19 @@ function week_stats {
     }
 
   else
-    echo "Nothing worked on week $1 for project $proj_name"
+    echo "Nothing worked on week $week year $year for project $proj_name"
   fi
 }
 
 function weekly_stats_days {
+  # $1 = Contents of the log file
+  # $2 = what week to search for
+  # $3 = What year to search for
   k=(Monday Tuesday Wednesday Thursday Friday Saturday Sunday)
-  days=$(echo "$2" | grep -o "2017-$1-[1-7]*\/" | grep -o '\-[1-7]\/' | grep -o '[1-7]' | sort)
+  file_contents=$1
+  week=$2
+  year=$3
+  days=$(echo "$file_contents" | grep -o "$year-$week-[1-7]*\/" | grep -o '\-[1-7]\/' | grep -o '[1-7]' | sort)
   day_str=""
   for day in $days; do
     day_str="$day_str, ${k[((day-1))]}"
@@ -401,6 +414,7 @@ function calculate_time_with_parameters {
 specify_project="n"
 # main
 while [[ $# -ge 1 ]]; do
+  logger_debug "Processing '$1'"
   case $1 in
     create)
       case "$2" in
@@ -420,23 +434,33 @@ while [[ $# -ge 1 ]]; do
         logs)
           show_logs="y"
           if [ ! -z "$3" ]; then
+            logger_debug "ID from argument matched: '$3'"
             proj_name=$3
             id_matched="y"
             action="show logs for?"
+            shift
           else
             id_matched="n"
           fi
           specify_project="y"
 
-          if [ ! -z "$4" ]; then
-            show_logs_week=$4
+          if [ ! -z "$3" ]; then
+            logger_debug "Week from argument matched: '$3'"
+            show_logs_week=$3
+            shift
+          fi
+
+          elem=$(echo $3 | grep '[0-9]*')
+          if [[ ! -z "$3" && $elem = $3 ]]; then
+            logger_debug "Year from argument matched: '$3'"
+            year=$elem
             shift
           fi
 
           shift ; shift
         ;;
         *)
-          shift
+          usage 1
         ;;
       esac
     ;;
@@ -503,7 +527,7 @@ while [[ $# -ge 1 ]]; do
       examples
     ;;
     *)
-      echo "about to call usage $1"
+      echo "about to call usage '$1'"
       usage 1
       shift
     ;;
@@ -560,7 +584,7 @@ if [ ! -z "$delete_project" ]; then
   exit 0
 elif [ ! -z "$show_logs" ]; then
   if [ -z "$show_logs_week" ]; then
-    echo "For what week?"
+    echo "For what week? Current week is $(date +%V)"
     read week
     show_logs_week=$week
   fi
@@ -570,7 +594,8 @@ elif [ ! -z "$show_logs" ]; then
     if [ ! -z "$proj_name" ]; then
       get_project_meta_info $proj_name
       logger_debug "Showing logs for $proj_name given week $show_logs_week"
-      week_stats $show_logs_week "$(cat $log_path/$proj_name.logs)"
+      if [ -z "$year" ]; then year=$(date +%Y); fi
+      week_stats "$(cat $log_path/$proj_name.logs)" "$show_logs_week" "$year"
     fi
   else
     echo "Can't show logs if no projects exists"
