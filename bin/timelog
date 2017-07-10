@@ -6,18 +6,22 @@ log_path="$HOME/.config/timelogs"
 # Increased log level = more debugy
 log_level=0
 
+# Version
+VERSION="0.2.0"
+
 function logger_debug {
   [ $log_level -ge 1 ] && echo "$(date +%Y-%m-%d\ %H:%M:%S) DEBUG $1"
 }
 
 function usage {
+    echo "Timelog version: $VERSION"
     echo "Timelog is a script written for keeping track of time for projects."
     echo "It will log time inputed via this CLI to store it to the disk in \$HOME/.config/timelog/project_id.log."
     echo ""
     echo "Usage: $(basename $0)"
     echo " * log (project_id) (start time, end time, break time)"
     echo " * list project"
-    echo " * show logs (project_id) (week)"
+    echo " * show logs (project_id) (week) | (--raw)"
     echo " * delete project"
     echo ""
     echo "For debugging, run with -v"
@@ -86,7 +90,7 @@ function week_stats {
       dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | grep -o '[0-9]*\.*[0-9]*')
       mil_time_for_day=$(echo "$record" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
       day=$(date -d "$day" +%A | sed  's/^\(.\)/\U\1/') # Sed regex converts first char to uppercase. monday=>Monday
-      dec_time=$(awk "BEGIN {print ($hours+$dec_time_for_day)}")
+      dec_time=$(awk "BEGIN {print ($dec_time+$dec_time_for_day)}") # Awk this because it can contain decimals.
       echo "$day: ${dec_time_for_day}h / $mil_time_for_day"
     done <<< "$records"
 
@@ -233,16 +237,19 @@ function describe_project {
   echo "What is the currency paid?"
   read currency
 
-  [ ! -f "$log_path/def/$project_name" ] && {
-    logger_debug "Initalizing project $project_name" ;
+  if [ ! -f "$log_path/def/$project_name" ]; then
+    logger_debug "Initalizing project $project_name"
     touch $log_path/def/$project_name
     touch $log_path/$project_name.logs
-    echo "project_name=$project_name" > $log_path/def/$project_name ;
-    echo "project_id=$project_id" >> $log_path/def/$project_name ;
-    echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name ;
-    echo "target_hours=$target_hours" >> $log_path/def/$project_name ;
-    echo "currency=$currency" >> $log_path/def/$project_name ;
-  }
+    echo "project_name=$project_name" > $log_path/def/$project_name
+    echo "project_id=$project_id" >> $log_path/def/$project_name
+    echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name
+    echo "target_hours=$target_hours" >> $log_path/def/$project_name
+    echo "currency=$currency" >> $log_path/def/$project_name
+  else
+    echo "Could not create project, it already exists!"
+    logger_debug "Could not create $project_name since $log_path/def/$project_name does exists"
+  fi
 }
 
 function init_program {
@@ -414,6 +421,7 @@ function calculate_time_with_parameters {
 }
 
 specify_project="n"
+
 # Get all projects for the program
 get_all_projects
 
@@ -438,25 +446,24 @@ while [[ $# -ge 1 ]]; do
       case "$2" in
         logs)
           show_logs="y"
-          if [ ! -z "$3" ]; then
-            logger_debug "ID from argument matched: '$3'"
-            proj_name=$3
-            id_matched="y"
-            action="show logs for?"
-            shift
-          else
-            id_matched="n"
-          fi
           specify_project="y"
+          proj_name=$(get_project_from_id $3)
+          action="show logs for?"
+          if [ ! -z "$proj_name" ]; then
+            logger_debug "ID from argument matched: '$3'"
+            specify_project="n"
+            shift
+          fi
 
-          if [ ! -z "$3" ]; then
+          k=$(echo "$3" | grep -o '[0-9]*')
+          if [[ "$k" == "$3" && $k -ge 0 && $k -le 52 ]]; then
             logger_debug "Week from argument matched: '$3'"
             show_logs_week=$3
             shift
           fi
 
-          elem=$(echo $3 | grep '[0-9]*')
-          if [[ ! -z "$3" && $elem = $3 ]]; then
+          elem=$(echo $3 | grep -o '[0-9]*')
+          if [[ ! -z "$3" && $elem == $3 ]]; then
             logger_debug "Year from argument matched: '$3'"
             year=$elem
             shift
@@ -487,30 +494,37 @@ while [[ $# -ge 1 ]]; do
       shift; shift
     ;;
     --dev)
+      logger_debug "Setting $2 to \$log_path"
       log_path=$2
+      get_all_projects
       shift ; shift
+    ;;
+    --raw)
+      raw_logs="y"
+      shift
     ;;
     log)
       logger_debug "Log time matched"
-      id_matched="n"
-      if [ ! -z "$(get_project_from_id $2)" ] ; then
-        logger_debug "Matched project id from argument: '$2'"
-        id_matched="y"
-        proj_name=$2
-        shift
-      fi
-
       log_time="y"
       specify_project="y"
+      id_matched="n"
       action="log time for"
-      maybeStart=$2
-      maybeEnd=$3
-      maybeBreak=$4
+      proj_name=$(get_project_from_id $2)
+      if [ ! -z "$proj_name" ] ; then
+        logger_debug "Matched project id from argument: '$2'"
+        specify_project="n"
+        shift
+      else
+        logger_debug "'$2' was not a project"
+      fi
 
+      maybeStart=$2
+      [ ! -z "$2" ] && { logger_debug "Shifting $2"; shift ; }
+      maybeEnd=$2
+      [ ! -z "$2" ] && { logger_debug "Shifting $2"; shift ; }
+      maybeBreak=$2
+      [ ! -z "$2" ] && { logger_debug "Shifting $2"; shift ; }
       shift
-      [ ! -z "$1" ] && { logger_debug "Shifting $1"; shift ; }
-      [ ! -z "$1" ] && { logger_debug "Shifting $1"; shift ; }
-      [ ! -z "$1" ] && { logger_debug "Shifting $1"; shift ; }
     ;;
     -v)
       logger_debug "Debug is toggled"
@@ -534,11 +548,30 @@ while [[ $# -ge 1 ]]; do
       esac
       shift
     ;;
+    edit)
+      case "$2" in
+        logs)
+          specify_project="y"
+          edit_logs="y"
+          proj_name=$(get_project_from_id "$3")
+          if [ ! -z "$proj_name" ]; then
+            specify_project="n"
+            id_matched="y"
+            shift
+          fi
+          shift
+        ;;
+        *)
+          usage 1
+        ;;
+      esac
+      shift
+    ;;
     --examples)
       examples
     ;;
     *)
-      echo "about to call usage '$1'"
+      logger_debug "About to call usage '$1'"
       usage 1
       shift
     ;;
@@ -579,34 +612,39 @@ fi
 
 if [ ! -z "$list_projects" ]; then
   if [ ! -z "$all_projects" ]; then
-      echo "The projects are:"
-      echo "$all_projects"
-    else
-      echo "No projects!"
-    fi
-    exit 0
+    echo "The projects are:"
+    echo "$all_projects"
+  else
+    echo "No projects!"
+  fi
+  exit 0
 fi
 
 if [ ! -z "$delete_project" ]; then
   delete_project
   exit 0
 elif [ ! -z "$show_logs" ]; then
-  if [ -z "$show_logs_week" ]; then
-    echo "For what week? Current week is $(date +%V)"
-    read week
-    show_logs_week=$week
-  fi
-	logger_debug "project: $proj_name"
+  if [ -z "$raw_logs" ]; then
+    if [ -z "$show_logs_week" ]; then
+      echo "For what week? Current week is $(date +%V)"
+      read week
+      show_logs_week=$week
+    fi
+    logger_debug "project: $proj_name"
 
-  if [ ! -z "$all_projects" ]; then
-    if [ ! -z "$proj_name" ]; then
-      get_project_meta_info $proj_name
-      logger_debug "Showing logs for $proj_name given week $show_logs_week"
-      if [ -z "$year" ]; then year=$(date +%Y); fi
-      week_stats "$(cat $log_path/$proj_name.logs)" "$show_logs_week" "$year"
+    if [ ! -z "$all_projects" ]; then
+      if [ ! -z "$proj_name" ]; then
+        get_project_meta_info $proj_name
+        logger_debug "Showing logs for $proj_name given week $show_logs_week"
+        if [ -z "$year" ]; then year=$(date +%Y); fi
+        week_stats "$(cat $log_path/$proj_name.logs)" "$show_logs_week" "$year"
+      fi
+    else
+      echo "Can't show logs if no projects exists"
     fi
   else
-    echo "Can't show logs if no projects exists"
+    logger_debug "About to start less with $log_path/${proj_name}.logs as argument"
+    less "$log_path/${proj_name}.logs"
   fi
 elif [ ! -z "$log_time" ]; then
   logger_debug "About to log time"
@@ -649,6 +687,17 @@ elif [ ! -z "$log_time" ]; then
     calculate_time_with_parameters "$start_time" "$stop_time" $break_minutes $proj_name
   else
     logger_debug "Could not log time since the project name send to this section was unset."
+  fi
+elif [ ! -z "$edit_logs" ]; then
+  if [ ! -z "$(which xdg-open >/dev/null 2>&1)" ]; then
+    logger_debug "Opening with xdg-open"
+    xdg-open "$log_path/${proj_name}.logs";
+  elif [ ! -z "$EDITOR" ]; then
+    logger_debug "Opening with \$EDITOR"
+    "${EDITOR}" "$log_path/${proj_name}.logs"
+  else
+    logger_debug "Opening with vim, default"
+    vim "$log_path/${proj_name}.logs"
   fi
 fi
 

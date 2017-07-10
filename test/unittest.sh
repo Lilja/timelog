@@ -65,7 +65,7 @@ testListProjects() {
 
 testLogProject() {
   createProjectTest 5
-timelog $debug --dev $dir log project ts 0800 1000 0 <<END
+timelog $debug --dev $dir log ts 0800 1000 0 <<END
 n
 END
   code=$?
@@ -73,7 +73,7 @@ END
   assertTrue "A log entry was created when specified not to create" "[ $(cat $dir/Test.logs | wc -l) -eq 0 ]"
 
 
-timelog $debug --dev $dir log project ts 0800 1000 0 <<END
+timelog $debug --dev $dir log ts 0800 1000 0 <<END
 y
 END
   code=$?
@@ -92,7 +92,7 @@ END
 testLogProjectwithObscureTime() {
   createProjectTest 5
 
-timelog $debug --dev $dir log project ts 0840 1802 34 <<END
+timelog $debug --dev $dir log ts 0840 1802 34 <<END
 y
 END
   code=$?
@@ -110,7 +110,7 @@ testShowWeeklyLogs() {
   createProjectTest 5
   current_week=$(date +%V)
   today=$(date +%A)
-timelog $debug --dev $dir log project ts 0840 1802 34 << END
+timelog $debug --dev $dir log ts 0840 1802 34 << END
 y
 END
   capture=$(timelog --dev $dir show logs ts $current_week)
