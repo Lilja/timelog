@@ -26,7 +26,7 @@ It will log time inputed via this CLI to store it to the disk in $HOME/.config/t
 Usage: timelog
  - log (project_id) (start time) (end time) (break time)
  - list project
- - show logs (project_id) (week) [year]
+ - show logs (project_id) (week) [year] | (--raw)
  - delete project
 
 For debugging, run with -v
@@ -49,9 +49,9 @@ to list current projects that are configured
 
 to log project for `project id` using `start time` `end time` `break time`
 
-`timelog show logs (project id) (week) (year)`
+`timelog show logs (project id) (week) (year) | (--raw)`
 
-to show logs for a `project id` during `week number` and `year`
+to show logs for a `project id` during `week number` and `year` or specify `--raw` to open up the logs with `less`
 
 `timelog delete project`
 
@@ -160,7 +160,7 @@ The program will prompt for input after it has been invoked.
 ---
 
 ##### Show logs
-`timelog show logs (project id) (week) (year)`
+`timelog show logs (project id) (week) (year) | (--raw)`
 
 `show logs` is keywords.
 
@@ -170,7 +170,17 @@ The program will prompt for input after it has been invoked.
 
 `year` Optional. The year to view logs from. Defaults to the current year.
 
+`--raw` Optional. If the user wants to open the log file for a project in less. Mostly used to debug.
+
 ---
+##### Edit logs
+Debug tool
+
+`timelog edit logs`
+
+`edit logs` is keywords.
+
+First, checks if `xdg-open` is a command. If so, will run it. Otherwise, it will check for `$EDITOR`. If neither are present, fall back to `vim`.
 
 ##### Delete project
 `timelog delete project`
