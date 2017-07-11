@@ -1,6 +1,9 @@
 language: bash
 
-sudo: false
+sudo: true
+
+services:
+  - docker
 
 before_script:
   - chmod +x test/unittest.sh
@@ -14,5 +17,6 @@ before_script:
 script:
   - export PATH=$PATH:$PWD/bin/
   - pushd test/
-  - bash unittest.sh
+  - ./unittest.sh
   - popd
+  - docker build -t kcov . --build-arg TRAVIS_JOB_ID=$TRAVIS_JOB_ID
