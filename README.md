@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/Lilja/timelog.svg?branch=master)](https://travis-ci.org/Lilja/timelog)
-[![Stories in Ready](https://badge.waffle.io/Lilja/timelog.png?label=ready&title=Ready)](https://waffle.io/Lilja/timelog?utm_source=badge)
+[![Stories in Progress](https://badge.waffle.io/Lilja/timelog.png?label=in%20progress&title=In%20Progress)](https://waffle.io/Lilja/timelog?utm_source=badge)
 
 # Timelog
 CLI Utility to log time for different projects.
