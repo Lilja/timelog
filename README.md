@@ -45,7 +45,7 @@ to create a new project(interactively)
 
 to list current projects that are configured
 
-`timelog log project (project id) (start time) (end time) (break time)`
+`timelog log (project id) (start time) (end time) (break time)`
 
 to log project for `project id` using `start time` `end time` `break time`
 
@@ -84,7 +84,7 @@ The projects are:
 
 Logging time for a project
 ```
-timelog log project ts 08:00 15:30 45
+timelog log ts 08:00 15:30 45
 Times: 08:00, 15:30, 45. Decimal time: 6.75 Military time: 06:45
 Save this to Test project log? y/n
 y
@@ -145,9 +145,9 @@ The program will prompt for input after it has been invoked.
 
 ---
 ##### Log project
-`timelog log project (project id) (start_time) (end time) (break time)`
+`timelog log (project id) (start_time) (end time) (break time)`
 
-`log project` is keywords.
+`log` is keywords.
 
 `project id` Optional/prompted. Is an ID that was specified during the creation.
 
