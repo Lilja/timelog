@@ -414,6 +414,9 @@ function calculate_time_with_parameters {
 }
 
 specify_project="n"
+# Get all projects for the program
+get_all_projects
+
 # main
 while [[ $# -ge 1 ]]; do
   logger_debug "Processing '$1'"
@@ -488,13 +491,15 @@ while [[ $# -ge 1 ]]; do
       shift ; shift
     ;;
     log)
-      case "$2" in
-        project)
-          proj_name=$3
-          id_matched="y"
-          shift ; shift
-        ;;
-      esac
+      logger_debug "Log time matched"
+      id_matched="n"
+      if [ ! -z "$(get_project_from_id $2)" ] ; then
+        logger_debug "Matched project id from argument: '$2'"
+        id_matched="y"
+        proj_name=$2
+        shift
+      fi
+
       log_time="y"
       specify_project="y"
       action="log time for"
@@ -519,6 +524,10 @@ while [[ $# -ge 1 ]]; do
           specify_project="n"
           shift
         ;;
+        project_id)
+          list_projects | grep -o '\[[^]]*\]' | sed 's#^\[##g; s#\]$##g' | tr '\n' ' '
+          shift
+        ;;
         *)
           usage 1
         ;;
@@ -541,9 +550,6 @@ if [ -z "$uninstall" ]; then
   k=$(is_program_inited)
   if [ $? -eq 1 ]; then init_program; fi
 fi
-
-# Get all projects for the program
-get_all_projects
 
 # If the program requires a project
 if [ "$specify_project" != "n" ]; then
