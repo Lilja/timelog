@@ -14,7 +14,9 @@ This new repository with a full re-write has more tools and support to log multi
 ### Installation
 Clone the repository, then just add the `bin` directory to the `$PATH` by running:
 
-`$ export PATH=$PATH:$PWD/bin/`
+```shell
+$ export PATH=$PATH:$PWD/bin/
+```
 
 This is only temporary though. For being able to consistent run `timelog` wherever you are on the filesystem, please put the export inside a `.profile` or `.zprofile` if you're running `ZSH`.
 
@@ -107,7 +109,7 @@ You have earned 337.5 kr pre-tax!
 Deleting a project
 ```
 timelog delete project
-`The projects
+The projects
 1: Test [ts]
 Which project do you want deleted?
 1
@@ -115,6 +117,8 @@ Are you sure you want to delete it? (y/n)
 y
 ```
 
+### Testing
+`timelog` uses [shunit2](https://github.com/kward/shunit2) for unit tests. In order to run the unit tests, please use the `test_dep.sh` script to download the dependency
 
 ### Documentation
 `log_path=$HOME/.config/timelogs`
@@ -147,9 +151,9 @@ The program will prompt for input after it has been invoked.
 ##### Log project
 `timelog log (project id) (start_time) (end time) (break time)`
 
-`log` is keywords.
+`log` is a keyword.
 
-`project id` Optional/prompted. Is an ID that was specified during the creation.
+`project id` Optional/prompted. Is an ID that was specified during the creation. No need to specify a `project_id` if there is only one project created.
 
 `start time` Optional/prompted. Is a timestamp to begin logging time from. `8, 8:00, 800, 08:00, 0800` is all valid and mean the same thing.
 
@@ -170,7 +174,7 @@ The program will prompt for input after it has been invoked.
 
 `year` Optional. The year to view logs from. Defaults to the current year.
 
-`--raw` Optional. If the user wants to open the log file for a project in less. Mostly used to debug.
+`--raw` Optional. If the user wants to open the log file for a project in `less`. Mostly used to debug.
 
 ---
 ##### Edit logs
@@ -182,6 +186,7 @@ Debug tool
 
 First, checks if `xdg-open` is a command. If so, will run it. Otherwise, it will check for `$EDITOR`. If neither are present, fall back to `vim`.
 
+---
 ##### Delete project
 `timelog delete project`
 
@@ -191,6 +196,4 @@ The program will prompt for which project to delete.
 
 ---
 
-### Testing
-`timelog` uses [shunit2](https://github.com/kward/shunit2) for unit tests. In order to run the unit tests, please use the `test_dep.sh` script to download the dependency
 
