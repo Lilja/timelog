@@ -23,6 +23,7 @@ function usage {
     echo " * list project"
     echo " * show logs (project_id) (week) | (--raw)"
     echo " * delete project"
+    echo " * --help"
     echo ""
     echo "For debugging, run with -v"
     echo "To see examples, run $(basename $0) --examples"
@@ -425,6 +426,9 @@ specify_project="n"
 # Get all projects for the program
 get_all_projects
 
+# If empty arguments, call usage
+if [ $# -eq 0 ]; then usage 0; fi
+
 # main
 while [[ $# -ge 1 ]]; do
   logger_debug "Processing '$1'"
@@ -438,7 +442,8 @@ while [[ $# -ge 1 ]]; do
           shift ; shift
         ;;
         *)
-          usage 1
+          echo "Could not comprehend '$2' with create keyword"
+          shift
         ;;
       esac
     ;;
@@ -472,7 +477,8 @@ while [[ $# -ge 1 ]]; do
           shift ; shift
         ;;
         *)
-          usage 1
+          echo "Could not comprehend '$2' with show keyword"
+          shift
         ;;
       esac
     ;;
@@ -484,10 +490,13 @@ while [[ $# -ge 1 ]]; do
           shift ; shift
         ;;
         *)
-          usage 1
+          echo "Could not comprehend '$2' with delete keyword"
           shift
         ;;
       esac
+    ;;
+    --help)
+      usage 0
     ;;
     --note)
       note=$2
@@ -543,7 +552,8 @@ while [[ $# -ge 1 ]]; do
           shift
         ;;
         *)
-          usage 1
+          echo "Could not comprehend '$2' with list keyword"
+          shift
         ;;
       esac
       shift
@@ -554,6 +564,7 @@ while [[ $# -ge 1 ]]; do
           specify_project="y"
           edit_logs="y"
           proj_name=$(get_project_from_id "$3")
+          action="edit logs for"
           if [ ! -z "$proj_name" ]; then
             specify_project="n"
             id_matched="y"
@@ -562,7 +573,8 @@ while [[ $# -ge 1 ]]; do
           shift
         ;;
         *)
-          usage 1
+          echo "Could not comprehend '$2' with edit keyword"
+          shift
         ;;
       esac
       shift
@@ -572,6 +584,7 @@ while [[ $# -ge 1 ]]; do
     ;;
     *)
       logger_debug "About to call usage '$1'"
+      echo "Unknown argument $1"
       usage 1
       shift
     ;;
@@ -586,24 +599,37 @@ fi
 
 # If the program requires a project
 if [ "$specify_project" != "n" ]; then
-  logger_debug "Project input: '$proj_name'"
-  old_proj_name=$proj_name
-  logger_debug "Is ID matched? '$id_matched'"
+  # select max number from left most number in list projects
+  proj_amount=$(echo -n $all_projects | grep -o '^[0-9]' | tail -n1)
+  if [ $proj_amount -ge 1 ]; then
+    if [ $proj_amount -eq 1 ]; then
+      logger_debug "Only one project created, getting it"
+      proj_name=$(get_project_from_id ".*")
+      logger_debug "Got '$proj_name'"
+    else
+      logger_debug "Project input: '$proj_name'"
+      old_proj_name=$proj_name
+      logger_debug "Is ID matched? '$id_matched'"
 
-  if [ "$id_matched" = "y" ]; then
-    proj_name=$(get_project_from_id $proj_name) ;
-    logger_debug "Specifying a project with id_name '$proj_name'" ;
+      if [ "$id_matched" = "y" ]; then
+        proj_name=$(get_project_from_id $proj_name) ;
+        logger_debug "Specifying a project with id_name '$proj_name'" ;
+      else
+        echo "Here are the projects you have created:"
+        echo "$all_projects"
+        echo "What project are you trying to $action?"
+        read prompt_new_proj_name
+        proj_name=$prompt_new_proj_name
+        proj_name=$(get_project_from_all_projects $prompt_new_proj_name)
+      fi
+      [ -z "$proj_name" ] && { echo "'$old_proj_name' is not a valid project"; usage 1; }
+
+      logger_debug "Project is set as '$proj_name'"
+    fi
   else
-    echo "Here are the projects you have created:"
-    echo "$all_projects"
-    echo "What project are you trying to $action?"
-    read prompt_new_proj_name
-    proj_name=$prompt_new_proj_name
-    proj_name=$(get_project_from_all_projects $prompt_new_proj_name)
+    echo "This action requires you to specify a project but there is no created projects. Create a project with 'create project' keywords"
+    exit 0
   fi
-  [ -z "$proj_name" ] && { echo "'$old_proj_name' is not a valid project"; usage 1; }
-
-  logger_debug "Project is set as '$proj_name'"
 fi
 
 if [ ! -z $new_project ]; then
@@ -615,7 +641,7 @@ if [ ! -z "$list_projects" ]; then
     echo "The projects are:"
     echo "$all_projects"
   else
-    echo "No projects!"
+    echo "No projects! Create one with 'create project' keywords"
   fi
   exit 0
 fi
@@ -624,15 +650,15 @@ if [ ! -z "$delete_project" ]; then
   delete_project
   exit 0
 elif [ ! -z "$show_logs" ]; then
-  if [ -z "$raw_logs" ]; then
-    if [ -z "$show_logs_week" ]; then
-      echo "For what week? Current week is $(date +%V)"
-      read week
-      show_logs_week=$week
-    fi
-    logger_debug "project: $proj_name"
+  if [ ! -z "$all_projects" ]; then
+    if [ -z "$raw_logs" ]; then
+      if [ -z "$show_logs_week" ]; then
+        echo "For what week? Current week is $(date +%V)"
+        read week
+        show_logs_week=$week
+      fi
+      logger_debug "project: $proj_name"
 
-    if [ ! -z "$all_projects" ]; then
       if [ ! -z "$proj_name" ]; then
         get_project_meta_info $proj_name
         logger_debug "Showing logs for $proj_name given week $show_logs_week"
@@ -640,11 +666,11 @@ elif [ ! -z "$show_logs" ]; then
         week_stats "$(cat $log_path/$proj_name.logs)" "$show_logs_week" "$year"
       fi
     else
-      echo "Can't show logs if no projects exists"
+      logger_debug "About to start less with $log_path/${proj_name}.logs as argument"
+      less "$log_path/${proj_name}.logs"
     fi
   else
-    logger_debug "About to start less with $log_path/${proj_name}.logs as argument"
-    less "$log_path/${proj_name}.logs"
+    echo "Can't show logs if no projects exists"
   fi
 elif [ ! -z "$log_time" ]; then
   logger_debug "About to log time"
@@ -670,13 +696,14 @@ elif [ ! -z "$log_time" ]; then
 
     logger_debug "times: $2 $3 $4"
 
+    format="8, 800, 8:00, 0800, 08:00"
     start_time=$(parse_timestamp $start_timestamp)
     k=$(test_timestamp "$start_time")
-    [ $? -eq 0 ] || { echo "'$start_time' is not a number!"; echo "$k"; usage 1; }
+    [ $? -eq 0 ] || { echo "'$start_time' is not a number! '$start_time' does not follow $format"; echo "$k"; usage 1; }
 
     stop_time=$(parse_timestamp $end_timestamp)
     k=$(test_timestamp "$end_time")
-    [ $? -eq 0 ] || { echo "'$end_time' is not a number!"; echo "$k"; usage 1; }
+    [ $? -eq 0 ] || { echo "'$end_time' is not a number! '$end_time' does not follow $format"; echo "$k"; usage 1; }
 
     break_minutes=$break_time
     k="$(test_break $break_time)"
