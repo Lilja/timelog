@@ -59,6 +59,19 @@ to show logs for a `project id` during `week number` and `year` or specify `--ra
 
 to delete a project(interactively)
 
+### Dependecies
+`sed` tested with `4.4`
+`grep` tested with `3.0`
+`less` tested with `481`
+`bash` tested with `4.4.12(1)-release`
+`awk` tested with `4.1.4`
+`cut` tested with `8.26`
+`tr` tested with `8.26`
+
+shell that can execute `[[ ]]` if-statements
+
+
+
 ### Examples
 Creating a project
 ```
