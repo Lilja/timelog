@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $1 = "-v" ]]; then debug="-v"
+if [[ $1 = "-v" ]]; then debug="-v"; shift
 else debug=""; fi
 
 # Clean test directory if need to
@@ -10,46 +10,39 @@ else debug=""; fi
 mkdir dev/
 dir=$(echo "$PWD/dev")
 
-testFileSystem(){
+createProjectWithParams() {
+timelog $debug --dev $dir create project > /dev/null <<END
+$1
+$2
+$3
+$4
+$5
+END
+}
+
+testFileSystem() {
   touch foo
   assertTrue "Can not create files on filesystem" "[ -f foo ]"
   rm foo
 }
 
 createProjectTest() {
-  if [[ $1 -eq 5 ]]; then
-timelog $debug --dev $dir create project > /dev/null <<END
-Test
-ts
-40
-140
-kr
-END
-  fi
+  createProjectWithParams "Test" "ts" "40" "140" "kr"
 }
 
 createProjectWithoutMoneyPerHour() {
-  if [[ $1 -eq 5 ]]; then
-timelog $debug --dev $dir create project > /dev/null <<END
-Test2
-ts2
-40
-s
-END
-  fi
+  createProjectWithParams "Test2" "ts2" "40" "s"
 }
 
-deleteProjectTest() {
-  if [[ $1 -eq 5 ]]; then
+deleteProject() {
 timelog $debug --dev $dir delete project > /dev/null << END
 1
 y
 END
-  fi
 }
 
 testCreateAndDeleteProject() {
-  createProjectTest 5
+  createProjectTest
   code=$?
   proj_name=$(grep -o 'project_name\ *\=\ *Test' $dir/def/Test)
   proj_id=$(grep -o 'project_id\ *\=\ *Test' $dir/def/Test)
@@ -65,7 +58,7 @@ testCreateAndDeleteProject() {
   assertTrue "Money per hour was not retrieved" "[ ! -z $mph ]"
   assertTrue "Currency was not retrieved" "[ ! -z $curr ]"
 
-  deleteProjectTest 5
+  deleteProject
   code=$?
   assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
   assertTrue "Definition file was not deleted" "[ ! -f $dir/def/Test ]"
@@ -73,7 +66,7 @@ testCreateAndDeleteProject() {
 }
 
 testCreateProjectWithoutMoneyPerHour() {
-  createProjectWithoutMoneyPerHour 5
+  createProjectWithoutMoneyPerHour
   proj_name=$(grep -o 'project_name\ *\=\ *Test' $dir/def/Test2)
   proj_id=$(grep -o 'project_id\ *\=\ *Test' $dir/def/Test2)
   target=$(grep -o 'target_hours\ *\=\ *40' $dir/def/Test2)
@@ -88,30 +81,29 @@ testCreateProjectWithoutMoneyPerHour() {
   assertTrue "Money per hour was retrieved" "[ -z $mph ]"
   assertTrue "Currency was retrieved" "[ -z $curr ]"
 
-  deleteProjectTest 5
+  deleteProject
 }
 
 testListProjects() {
-  createProjectTest 5
+  createProjectTest
   k=$(timelog $debug --dev $dir list projects)
   code=$?
   match=$(echo "$k" | grep "1:\ Test\ \[ts\]")
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
   assertTrue "List projects did not print out the created project" "[ ! -z '$match' ]"
-  deleteProjectTest 5
+  deleteProject
 }
 
 testLogProject() {
-  createProjectTest 5
-timelog $debug --dev $dir log ts 0800 1000 0 <<END
+  createProjectTest
+timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null <<END
 n
 END
   code=$?
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
   assertTrue "A log entry was created when specified not to create" "[ $(cat $dir/Test.logs | wc -l) -eq 0 ]"
 
-
-timelog $debug --dev $dir log ts 0800 1000 0 <<END
+timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null <<END
 y
 END
   code=$?
@@ -124,13 +116,13 @@ END
   mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
   assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
   assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
-  deleteProjectTest 5
+  deleteProject
 }
 
 testLogProjectwithObscureTime() {
-  createProjectTest 5
+  createProjectTest
 
-timelog $debug --dev $dir log ts 0840 1802 34 <<END
+timelog $debug --dev $dir log ts 0840 1802 34 >/dev/null <<END
 y
 END
   code=$?
@@ -141,14 +133,14 @@ END
   assertTrue "Decimal time did not equal 8.8" "[ $dec_time = '8.8' ]"
   assertTrue "Decimal time did not equal 08:48" "[ $mil_time = '08:48' ]"
 
-  deleteProjectTest 5
+  deleteProject
 }
 
 testShowWeeklyLogs() {
-  createProjectTest 5
+  createProjectTest
   current_week=$(date +%V)
   today=$(date +%A)
-timelog $debug --dev $dir log ts 0840 1802 34 << END
+timelog $debug --dev $dir log ts 0840 1802 34 >/dev/null << END
 y
 END
   capture=$(timelog --dev $dir show logs ts $current_week)
@@ -157,11 +149,11 @@ END
   cmd=$(grep -q "$today: 8\.8h \/ 08:48" <<< $capture ; echo $?)
   assertTrue "Today($today)'s decimal time and/or military time was not equal to 8.8h/08:48" "[ $cmd -eq 0 ]"
 
-  deleteProjectTest 5
+  deleteProject
 }
 
 testShowWeeklyLogsEmpty() {
-  createProjectTest 5
+  createProjectTest
   current_week=$(date +%V)
   current_year=$(date +%Y)
   today=$(date +%A)
@@ -169,21 +161,48 @@ testShowWeeklyLogsEmpty() {
   cmd=$(grep -q "Nothing worked on week $current_week year $current_year for project Test" <<< "$capture"; echo $?)
   assertTrue "When nothing was logged, the output wasn't nothing" "[ $cmd -eq 0 ]"
 
-  deleteProjectTest 5
+  deleteProject
 }
 
-# Days worked for week 28
-# Monday: 8.8h / 08:48
-# ------
-# You have worked for 3.66667 hours at the following days: Monday
-# You have 36.3333 hours out of 40 hours giving you an estimate of
-# 9.08333 hours for 4 more days.
-# You have earned 513.334 kr pre-tax!
+testMultipleprojects() {
+  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
+  createProjectWithParams "Test2" "ts2" "40" "240" "kr"
 
-# timelog $debug --dev $dir show logs ts $(date +%V)
-# code=$?
+  projects=$(timelog $debug --dev $dir list projects | grep '^[0-9]:' | wc -l)
+  assertTrue "There was not two projects created: $projects counted" "[ $projects -eq 2 ]"
+
+timelog $debug --dev $dir log >/dev/null << END
+1
+08:00
+12:00
+0
+y
+END
+
+timelog $debug --dev $dir log >/dev/null << END
+2
+08:00
+18:00
+0
+y
+END
+
+  logs=$(timelog $debug --dev $dir show logs ts1 $(date +%V))
+  remaining_hours=$(echo "$logs" | grep -o 'You have 36 hours more to work')
+  worked_hours=$(echo "$logs" | grep -o 'You have worked for 4 hours')
+  assertTrue "Remaining hours was not 36" "[ ! -z '$remaining_hours' ]"
+  assertTrue "Worked hours was not 4" "[ ! -z '$worked_hours' ]"
+
+  logs=$(timelog $debug --dev $dir show logs ts2 $(date +%V))
+  remaining_hours=$(echo "$logs" | grep -o 'You have 30 hours more to work')
+  worked_hours=$(echo "$logs" | grep -o 'You have worked for 10 hours')
+  assertTrue "Remaining hours was not 30" "[ ! -z '$remaining_hours' ]"
+  assertTrue "Worked hours was not 10" "[ ! -z '$worked_hours' ]"
+
+  deleteProject
+  deleteProject
+}
 
 rm -r $dir/
-
 
 . shunit2-2.1.6/src/shunit2
