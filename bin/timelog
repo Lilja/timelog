@@ -250,14 +250,16 @@ function describe_project {
   echo "(This is used to specify which project you would like to submit time to)"
   read project_id
 
-  echo "What does the project pay(per hour)?"
-  read money_per_hour
-
   echo "What is the target hours per week?"
   read target_hours
 
-  echo "What is the currency paid?"
-  read currency
+  echo "What does the project pay(per hour)? Enter s to skip"
+  read money_per_hour
+
+  if [ "$money_per_hour" != "s" ]; then
+    echo "What is the currency paid?"
+    read currency
+  fi
 
   if [ ! -f "$log_path/def/$project_name" ]; then
     logger_debug "Initalizing project $project_name"
@@ -265,9 +267,11 @@ function describe_project {
     touch $log_path/$project_name.logs
     echo "project_name=$project_name" > $log_path/def/$project_name
     echo "project_id=$project_id" >> $log_path/def/$project_name
-    echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name
     echo "target_hours=$target_hours" >> $log_path/def/$project_name
-    echo "currency=$currency" >> $log_path/def/$project_name
+    if [ "$money_per_hour" != "s" ]; then
+      echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name
+      echo "currency=$currency" >> $log_path/def/$project_name
+    fi
   else
     echo "Could not create project, it already exists!"
     logger_debug "Could not create $project_name since $log_path/def/$project_name does exists"
