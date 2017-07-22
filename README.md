@@ -5,11 +5,15 @@
 CLI Utility to log time for different projects.
 
 ## Introduction
-`Timelog` is used to as a CLI to log time for projects. The purpose of this tool is to have a terminal friendly tool that can easily track time(since terminals are fast and easy these days).
+`Timelog` is a CLI program to log time for your every day projects. Whether it's for professional use or a hobby project, it's easy to track how many hours and minutes you have logged for different projects of different weeks.
+
+The purpose of this tool is to have a terminal friendly tool that can easily track time(since terminals are fast and easy these days).
 
 `Timelog` used to be a conversion tool that turned military time(`HH:mm`) to decimal time. I([@Lilja](https://github.com/lilja/)) worked for a company that used to log their time in decimal time(where working 8 hours and 30 minutes is not `8:30` but `8.5`. After a couple of iterations it turned from a conversion tool into a time logging tool.
 
 This new repository with a full re-write has more tools and support to log multiple different projects.
+### Demonstration
+![ttystudio](output.gif)
 
 ### Installation
 Clone the repository, then just add the `bin` directory to the `$PATH` by running:
@@ -30,6 +34,8 @@ Usage: timelog
  - list project
  - show logs (project_id) (week) [year] | (--raw)
  - delete project
+ - --help
+ - --version
 
 For debugging, run with -v
 

@@ -24,13 +24,13 @@ function usage {
     echo " * show logs (project_id) (week) | (--raw)"
     echo " * delete project"
     echo " * --help"
+		echo " * --version"
     echo ""
     echo "For debugging, run with -v"
     echo "To see examples, run $(basename $0) --examples"
     echo "All arguments in parenthesis will be prompted to the user if not supplied"
     echo "All arguments in brackets are optional which will have a default value if not supplied."
-    [ $1 -eq 1 ] && exit 1
-    exit 0
+    [ $1 -eq 1 ] && exit 1 || exit 0
 }
 
 function examples {
