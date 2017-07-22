@@ -97,17 +97,38 @@ function week_stats {
 
     weekly_info=$(weekly_stats_days "$file_contents" "$week" "$year")
     amount_of_days_worked=$(echo $weekly_info | wc -w)
-    days=$((5-$amount_of_days_worked))
-    remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
-    estimate=$(awk "BEGIN {print ($remaining/$days)}")
-
     echo "------"
     echo "You have worked for $dec_time hours at the following days: $weekly_info"
-    echo "You have $remaining hours out of $target_hours hours giving you an estimate of"
-    echo "$estimate hours for $days more days."
-    [ ! -z "$money" ] && {
+    remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
+    days_in_a_work_week=5
+
+    # Check if there is an remaining number of hours compoared to the total_hours. If so, give an estimate.
+    if [ $(echo "$remaining" | awk '($1 < 0){ exit 1 }' ; echo $?) ]; then
+      days=$(($days_in_a_work_week-$amount_of_days_worked))
+      logger_debug "Worked for $amount_of_days_worked days. Amount of remaining days(Assuming $days_in_a_work_week-day work week):$days"
+
+      # If about to do an estimate calculation, make sure that the worked days does not exceed days in a work week.
+      # Because it might cause an division by zero error
+      if [ $amount_of_days_worked -ge $days_in_a_work_week ]; then
+        days_in_a_work_week=7
+        days=$(($days_in_a_work_week-$amount_of_days_worked))
+        logger_debug "The days in a work week is exceeded by the number of days that has been worked."
+        logger_debug "Setting the days in a work week to $days_in_a_work_week"
+      fi
+
+      estimate=$(awk "BEGIN {print ($remaining/$days)}")
+      if [ $(echo "$estimate" | awk '($1 < 0){ exit 1 } ' ; echo $?) ]; then
+        echo "You have $remaining hours more to work, out of the total hours of $target_hours"
+        echo "This yields an estimate of $estimate hours for $days more days."
+      fi
+    else
+      echo "All hours caught up!"
+      overtime=$(awk "BEGIN { print($dec_time-$target_hours) }")
+      echo "You have overtime of $overtime hours"
+    fi
+    if [ ! -z "$money" ]; then
       echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") $currency pre-tax!"
-    }
+    fi
 
   else
     echo "Nothing worked on week $week year $year for project $proj_name"
