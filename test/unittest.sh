@@ -21,9 +21,20 @@ createProjectTest() {
 timelog $debug --dev $dir create project > /dev/null <<END
 Test
 ts
-140
 40
+140
 kr
+END
+  fi
+}
+
+createProjectWithoutMoneyPerHour() {
+  if [[ $1 -eq 5 ]]; then
+timelog $debug --dev $dir create project > /dev/null <<END
+Test2
+ts2
+40
+s
 END
   fi
 }
@@ -40,17 +51,44 @@ END
 testCreateAndDeleteProject() {
   createProjectTest 5
   code=$?
+  proj_name=$(grep -o 'project_name\ *\=\ *Test' $dir/def/Test)
+  proj_id=$(grep -o 'project_id\ *\=\ *Test' $dir/def/Test)
   target=$(grep -o 'target_hours\ *\=\ *40' $dir/def/Test)
+  mph=$(grep -o 'money_per_hour\ *\=\ *140' $dir/def/Test)
+  curr=$(grep -o 'currency\ *\=\ *kr' $dir/def/Test)
   assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
   assertTrue "Definition file could not be created" "[ -f $dir/def/Test ]"
   assertTrue "Log file could not be created" "[ -f $dir/Test.logs ]"
+  assertTrue "Project name was not retrieved" "[ ! -z $proj_name ]"
+  assertTrue "Project id was not retrieved" "[ -f $proj_id ]"
   assertTrue "Target hours was not retrieved" "[ ! -z $target ]"
+  assertTrue "Money per hour was not retrieved" "[ ! -z $mph ]"
+  assertTrue "Currency was not retrieved" "[ ! -z $curr ]"
 
   deleteProjectTest 5
   code=$?
   assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
   assertTrue "Definition file was not deleted" "[ ! -f $dir/def/Test ]"
   assertTrue "Log file was not deleted" "[ ! -f $dir/Test.logs ]"
+}
+
+testCreateProjectWithoutMoneyPerHour() {
+  createProjectWithoutMoneyPerHour 5
+  proj_name=$(grep -o 'project_name\ *\=\ *Test' $dir/def/Test2)
+  proj_id=$(grep -o 'project_id\ *\=\ *Test' $dir/def/Test2)
+  target=$(grep -o 'target_hours\ *\=\ *40' $dir/def/Test2)
+  mph=$(grep -o 'money_per_hour\ *\=\ *140' $dir/def/Test2)
+  curr=$(grep -o 'currency\ *\=\ *kr' $dir/def/Test2)
+  assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
+  assertTrue "Definition file could not be created" "[ -f $dir/def/Test2 ]"
+  assertTrue "Log file could not be created" "[ -f $dir/Test2.logs ]"
+  assertTrue "Project name was not retrieved" "[ ! -z $proj_name ]"
+  assertTrue "Project id was not retrieved" "[ -f $proj_id ]"
+  assertTrue "Target hours was not retrieved" "[ ! -z $target ]"
+  assertTrue "Money per hour was retrieved" "[ -z $mph ]"
+  assertTrue "Currency was retrieved" "[ -z $curr ]"
+
+  deleteProjectTest 5
 }
 
 testListProjects() {
