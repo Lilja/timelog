@@ -528,9 +528,11 @@ while [[ $# -ge 1 ]]; do
       shift; shift
     ;;
     --dev)
-      logger_debug "Setting $2 to \$log_path"
+      logger_debug "Setting '$2' to \$log_path"
       log_path=$2
       get_all_projects
+      project_ids_only=$(echo "$all_projects" | grep -o '\[.*\]')
+      logger_debug "'$2' contains the project ids: '$project_ids_only'"
       shift ; shift
     ;;
     --raw)
@@ -628,7 +630,7 @@ fi
 # If the program requires a project
 if [ "$specify_project" != "n" ]; then
   # select max number from left most number in list projects
-  proj_amount=$(echo -n $all_projects | grep -o '^[0-9]' | tail -n1)
+  proj_amount=$(echo "$all_projects" | grep -o '^[0-9]' | wc -l)
   if [ $proj_amount -ge 1 ]; then
     if [ $proj_amount -eq 1 ]; then
       logger_debug "Only one project created, getting it"
