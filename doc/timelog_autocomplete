@@ -1,0 +1,38 @@
+__timelog_complete()
+{
+  local cur prev
+
+  COMPREPLY=()
+  cur=${COMP_WORDS[COMP_CWORD]}
+  prev=${COMP_WORDS[COMP_CWORD-1]}
+
+  case ${COMP_CWORD} in
+      1)
+          COMPREPLY=($(compgen -W "show list log create delete" ${cur}))
+      ;;
+      2)
+          case ${prev} in
+              show)
+                  COMPREPLY=($(compgen -W "logs" ${cur}))
+              ;;
+              list)
+                  COMPREPLY=($(compgen -W "projects" ${cur}))
+              ;;
+              log)
+                  COMPREPLY=()
+              ;;
+              create)
+                  COMPREPLY=($(compgen -W "project" ${cur}))
+              ;;
+              delete)
+                  COMPREPLY=($(compgen -W "delete" ${cur}))
+              ;;
+          esac
+      ;;
+      *)
+          COMPREPLY=()
+      ;;
+  esac
+  return 0
+} &&
+complete -F __timelog_complete timelog
