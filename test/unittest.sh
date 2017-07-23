@@ -1,5 +1,6 @@
 #!/bin/bash
 
+rm -r dev/
 if [[ $1 = "-v" ]]; then debug="-v"; shift
 else debug=""; fi
 
@@ -200,6 +201,26 @@ END
   assertTrue "Worked hours was not 10" "[ ! -z '$worked_hours' ]"
 
   deleteProject
+  deleteProject
+}
+
+testDifferentInputFormats() {
+  createProjectTest
+  rgx="Decimal time: 2 Military time: 02:00"
+  list=("[8,10] [800,1000] [0800,1000] [8.00,10.00] [8:00,10:00] [08:00,10:00]")
+
+  for it in $list; do
+    begin=$(echo "$it" | grep -o "[0-9]*\:*\.*[0-9]*," | sed 's#,##')
+    end=$(echo "$it" | grep -o ",[0-9]*\:*\.*[0-9]*" | sed 's#,##')
+entry=$(timelog $debug --dev $dir log ts "$begin" "$end" 0 <<END
+n
+END
+)
+    regexd=$(echo "$entry" | grep -o "$rgx")
+
+    assertTrue "Begining time of '$begin' and end time of '$end' did not equal to the output time of 2/02:00:$entry" "[ '$regexd' = '$rgx' ]"
+  done
+
   deleteProject
 }
 
