@@ -14,6 +14,9 @@ The purpose of this tool is to have a terminal friendly tool that can easily tra
 This new repository with a full re-write has more tools and support to log multiple different projects.
 ### Demonstration
 ![ttystudio](output.gif)
+This gif shows a simple demonstration that creates a project, logs the time between 08:00-17:20 with 40 minutes of break time and shows a weekly report that shows various statistics.
+
+Created with [ttystudio](https://github.com/chjj/ttystudio)
 
 ### Installation
 Clone the repository, then just add the `bin` directory to the `$PATH` by running:
@@ -67,12 +70,19 @@ to delete a project(interactively)
 
 ### Dependecies
 `sed` tested with `4.4`
+
 `grep` tested with `3.0`
+
 `less` tested with `481`
+
 `bash` tested with `4.4.12(1)-release`
+
 `awk` tested with `4.1.4`
+
 `cut` tested with `8.26`
+
 `tr` tested with `8.26`
+
 
 shell that can execute `[[ ]]` if-statements
 
