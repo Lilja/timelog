@@ -21,6 +21,12 @@ $5
 END
 }
 
+logProjectTest() {
+timelog $debug --dev $dir log ts 0800 1800 0 >/dev/null <<END
+y
+END
+}
+
 testFileSystem() {
   touch foo
   assertTrue "Can not create files on filesystem" "[ -f foo ]"
@@ -222,6 +228,15 @@ END
   done
 
   deleteProject
+}
+
+testUninstall() {
+  createProjectTest
+  logProjectTest
+timelog $debug --dev $dir --uninstall << END
+timelog
+END
+  assertTrue "No log folder was deleted when uninstalling" "[ ! -d '$dir' ]"
 }
 
 rm -r $dir/

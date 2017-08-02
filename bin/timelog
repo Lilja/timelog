@@ -9,6 +9,9 @@ log_level=0
 # Version
 VERSION="0.3.0"
 
+# A phrase to type out to uninstall the software
+UNINSTALL_PHRASE="timelog"
+
 function logger_debug {
   [ $log_level -ge 1 ] && echo "$(date +%Y-%m-%d\ %H:%M:%S) DEBUG $1"
 }
@@ -547,6 +550,10 @@ while [[ $# -ge 1 ]]; do
       raw_logs="y"
       shift
     ;;
+    --uninstall)
+      uninstall="y"
+      shift
+    ;;
     log)
       logger_debug "Log time matched"
       log_time="y"
@@ -622,7 +629,7 @@ while [[ $# -ge 1 ]]; do
     ;;
     *)
       logger_debug "About to call usage '$1'"
-      echo "Unknown argument $1"
+      echo "Unknown argument '$1'"
       usage 1
       shift
     ;;
@@ -633,6 +640,17 @@ done
 if [ -z "$uninstall" ]; then
   k=$(is_program_inited)
   if [ $? -eq 1 ]; then init_program; fi
+else
+  logger_debug "Uninstall toggled"
+  logger_debug "User should match '$UNINSTALL_PHRASE' to delete all configuration/logs"
+  echo "Are you sure that you want to uninstall timelog? There is no undo in doing this."
+  echo "Type out: '$UNINSTALL_PHRASE' to delete all configuration and logs that you have created."
+  read -r phrase
+  if [[ "$phrase" == "$UNINSTALL_PHRASE" ]]; then
+    logger_debug "'$UNINSTALL_PHRASE' matched. About to remove all configuration."
+    echo "Removing '$log_path'"
+    rm -r "$log_path"
+  fi
 fi
 
 # If the program requires a project
