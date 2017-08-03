@@ -235,6 +235,11 @@ END
   deleteProject
 }
 
+testUnknownArgumemt() {
+  cmd=$(timelog asdf | grep "Unknown argument 'asdf'")
+  assertTrue "Faulty command did not match the string 'Unknown argument'" "[ ! -z '$cmd' ]"
+}
+
 testPurge() {
   createProjectTest
   logProjectTest
