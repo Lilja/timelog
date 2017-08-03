@@ -12,8 +12,8 @@ The purpose of this tool is to have a terminal friendly tool that can easily tra
 `Timelog` used to be a conversion tool that turned military time(`HH:mm`) to decimal time. I([@Lilja](https://github.com/lilja/)) worked for a company that used to log their time in decimal time(where working 8 hours and 30 minutes is not `8:30` but `8.5`. After a couple of iterations it turned from a conversion tool into a time logging tool.
 
 This new repository with a full re-write has more tools and support to log multiple different projects.
-### Demonstration
-![ttystudio](output.gif)
+### Demo
+![ttystudio](demo.gif)
 This gif shows a simple demonstration that creates a project, logs the time between 08:00-17:20 with 40 minutes of break time and shows a weekly report that shows various statistics.
 
 Created with [ttystudio](https://github.com/chjj/ttystudio)
@@ -27,6 +27,9 @@ $ export PATH=$PATH:$PWD/bin/
 
 This is only temporary though. For being able to consistent run `timelog` wherever you are on the filesystem, please put the export inside a `.profile` or `.zprofile` if you're running `ZSH`.
 
+### Uninstallation
+Run `timelog --purge` and then delete the source files.
+
 ### Usage
 ```
 Timelog is a script written for keeping track of time for projects.
@@ -39,6 +42,7 @@ Usage: timelog
  - delete project
  - --help
  - --version
+ - --purge
 
 For debugging, run with -v
 
@@ -67,6 +71,10 @@ to show logs for a `project id` during `week number` and `year` or specify `--ra
 `timelog delete project`
 
 to delete a project(interactively)
+
+`timelog --purge`
+
+to purge or remove all configuration and logs made
 
 ### Dependecies
 `sed` tested with `4.4`
@@ -146,6 +154,15 @@ Are you sure you want to delete it? (y/n)
 y
 ```
 
+To purge all configuration
+```
+timelog --purge
+Are you sure that you want to purge timelog? There is no undo in doing this.
+Type out: 'timelog' to delete all configuration and logs that you have created."
+timelog
+Removing ~/.config/timelog
+```
+
 ### Testing
 `timelog` uses [shunit2](https://github.com/kward/shunit2) for unit tests. In order to run the unit tests, please use the `test_dep.sh` script to download the dependency
 
@@ -219,10 +236,14 @@ First, checks if `xdg-open` is a command. If so, will run it. Otherwise, it will
 ##### Delete project
 `timelog delete project`
 
-`delete project` is keywords. 
+`delete project` is keywords.
 
 The program will prompt for which project to delete.
 
 ---
+##### Purge project
+`timelog --purge`
 
+`--purge` is a keyword.
 
+The program will prompt for a string that needs to be typed out, after doing that there is no going back unless you have made backups.
