@@ -10,7 +10,7 @@ log_level=0
 VERSION="0.3.0"
 
 # A phrase to type out to uninstall the software
-UNINSTALL_PHRASE="timelog"
+PURGE_PHRASE="timelog"
 
 function logger_debug {
   [ $log_level -ge 1 ] && echo "$(date +%Y-%m-%d\ %H:%M:%S) DEBUG $1"
@@ -28,6 +28,7 @@ function usage {
   echo " * delete project"
   echo " * --help"
   echo " * --version"
+  echo " * --purge"
   echo ""
   echo "For debugging, run with -v"
   echo "To see examples, run $(basename $0) --examples"
@@ -550,8 +551,8 @@ while [[ $# -ge 1 ]]; do
       raw_logs="y"
       shift
     ;;
-    --uninstall)
-      uninstall="y"
+    --purge)
+      purge="y"
       shift
     ;;
     log)
@@ -636,20 +637,22 @@ while [[ $# -ge 1 ]]; do
   esac
 done
 
-# if united, init
-if [ -z "$uninstall" ]; then
+# if un-inited, init
+# If want to purge, don't init s
+if [ -z "$purge" ]; then
   k=$(is_program_inited)
   if [ $? -eq 1 ]; then init_program; fi
 else
   logger_debug "Uninstall toggled"
-  logger_debug "User should match '$UNINSTALL_PHRASE' to delete all configuration/logs"
-  echo "Are you sure that you want to uninstall timelog? There is no undo in doing this."
-  echo "Type out: '$UNINSTALL_PHRASE' to delete all configuration and logs that you have created."
+  logger_debug "User should match '$PURGE_PHRASE' to delete all configuration/logs"
+  echo "Are you sure that you want to purge timelog? There is no undo in doing this."
+  echo "Type out: '$PURGE_PHRASE' to delete all configuration and logs that you have created."
   read -r phrase
-  if [[ "$phrase" == "$UNINSTALL_PHRASE" ]]; then
-    logger_debug "'$UNINSTALL_PHRASE' matched. About to remove all configuration."
+  if [[ "$phrase" == "$PURGE_PHRASE" ]]; then
+    logger_debug "'$PURGE_PHRASE' matched. About to remove all configuration."
     echo "Removing '$log_path'"
     rm -r "$log_path"
+    [ $? -ne 0 ] && { logger_debug "Exiting with 1 "; exit 1; } || { logger_debug "Exiting with 0"; exit 0; }
   fi
 fi
 

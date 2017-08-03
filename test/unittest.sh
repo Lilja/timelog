@@ -33,6 +33,11 @@ testFileSystem() {
   rm foo
 }
 
+testHasTimelogBinary() {
+  k=$(which timelog 2>&1 >/dev/null ; echo $?)
+  assertTrue "Timelog binary was not found" "[ $k -eq 0 ]"
+}
+
 createProjectTest() {
   createProjectWithParams "Test" "ts" "40" "140" "kr"
 }
@@ -230,13 +235,13 @@ END
   deleteProject
 }
 
-testUninstall() {
+testPurge() {
   createProjectTest
   logProjectTest
-timelog $debug --dev $dir --uninstall << END
+timelog $debug --dev $dir --purge << END
 timelog
 END
-  assertTrue "No log folder was deleted when uninstalling" "[ ! -d '$dir' ]"
+  assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
 }
 
 rm -r $dir/
