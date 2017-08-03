@@ -131,6 +131,65 @@ END
   deleteProject
 }
 
+testLogProjectWithDate() {
+  day="2017-01-01"
+  nextDay="2017-01-02"
+  createProjectTest
+timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null --date "$day" <<END
+y
+END
+  code=$?
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "A log entry was not created when specifying custom date" "[ $( wc -l < $dir/Test.logs) -eq 1 ]"
+
+timelog $debug --dev $dir log ts 0800 1100 0 --date "$nextDay" >/dev/null <<END
+y
+END
+  code=$?
+  logs=$(cat "$dir/Test.logs")
+  amount_of_logs=$(wc -l < $dir/Test.logs 2>/dev/null)
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "A log entry was not created. The amount of logs are: '$amount_of_logs'" "[ $amount_of_logs -eq 2 ]"
+
+  dayOneLogs=$(echo "$logs" | head -n1)
+  dayTwoLogs=$(echo "$logs" | tail -n1)
+  dec_time=$(echo "$dayOneLogs" | grep -o '\[2\]' | grep -o '2')
+  mil_time=$(echo "$dayOneLogs" | grep -o '\{02:00\}' | grep -o '02:00')
+  dayOneDate=$(echo "$dayOneLogs" | grep -o "\/$day")
+  assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
+  assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
+  assertTrue "Custom date was not $day" "[ '$dayOneDate' = '/$day' ]"
+
+  dec_time=$(echo "$dayTwoLogs" | grep -o '\[3\]' | grep -o '3')
+  mil_time=$(echo "$dayTwoLogs" | grep -o '\{03:00\}' | grep -o '03:00')
+  dayTwoDate=$(echo "$dayTwoLogs" | grep -o "\/$nextDay")
+  assertTrue "Decimal time was not 3" "[ $dec_time -eq 3 ]"
+  assertTrue "HH:mm time was not 03:00" "[ $mil_time = '03:00' ]"
+  assertTrue "Custom date was not $nextDay" "[ '$dayTwoDate' = '/$nextDay' ]"
+
+  deleteProject
+}
+
+testLogWeekFirstOfJan() {
+  # Tests the edge case 2017-01-01. If retrieving 'year-week-day_in_week' it should retrieve:
+  # 2016-52-7
+  day="2017-01-01"
+  year_week_day_of_date="2016-52-7"
+  createProjectTest
+timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null --date "$day" <<END
+y
+END
+  code=$?
+  logs=$(cat "$dir/Test.logs")
+  amount_of_logs=$(wc -l < $dir/Test.logs 2>/dev/null)
+  mixed_date=$(echo "$logs" | grep -o "$year_week_day_of_date\/$day")
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "A log entry was not created when specifying custom date" "[ $( wc -l < $dir/Test.logs) -eq 1 ]"
+  assertTrue "Custom date was not $day" "[ '$mixed_date' = '$year_week_day_of_date/$day' ]"
+
+  deleteProject
+}
+
 testLogProjectwithObscureTime() {
   createProjectTest
 
