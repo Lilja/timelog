@@ -7,7 +7,7 @@ log_path="$HOME/.config/timelogs"
 log_level=0
 
 # Version
-VERSION="0.3.0"
+VERSION="0.4.0"
 
 # A phrase to type out to uninstall the software
 PURGE_PHRASE="timelog"
@@ -17,7 +17,6 @@ function logger_debug {
 }
 
 function usage {
-  echo "Timelog version: $VERSION"
   echo "Timelog is a script written for keeping track of time for projects."
   echo "It will log time inputed via this CLI to store it to the disk in \$HOME/.config/timelog/project_id.log."
   echo ""
@@ -96,7 +95,10 @@ function week_stats {
       mil_time_for_day=$(echo "$record" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
       day=$(date -d "$day" +%A | sed  's/^\(.\)/\U\1/') # Sed regex converts first char to uppercase. monday=>Monday
       dec_time=$(awk "BEGIN {print ($dec_time+$dec_time_for_day)}") # Awk this because it can contain decimals.
-      echo "$day: ${dec_time_for_day}h / $mil_time_for_day"
+
+      # grep: match \[ then everything that is not \] and a final \] at the very end of the string.
+      note=$(echo "$record" | grep -o '\[[^]]*\]$' | sed 's#^\[##; s#\]$##')
+      echo "$day: ${dec_time_for_day}h / $mil_time_for_day $note"
     done <<< "$records"
 
     weekly_info=$(weekly_stats_days "$file_contents" "$week" "$year")
@@ -203,13 +205,13 @@ function parse_timestamp {
 function test_timestamp {
   k=$(echo "$1" | grep -o '[0-9][0-9]\ [0-9][0-9]')
   logger_debug "test_timestamp: '$1' => '$k'"
-  [ "$k" == "$1" ] && exit 0 || exit 1
+  [ ! -z "$k" ] && [ "$k" == "$1" ] && exit 0 || exit 1
 }
 
 function test_break {
   k=$(echo $1 | grep -o '[0-9]*')
   logger_debug "test_break: '$1' => '$k'"
-  [ $k == $1 ] && exit 0 || exit 1
+  [ ! -z "$k" ] && [ $k == $1 ] && exit 0 || exit 1
 }
 
 function does_project_exist {
@@ -334,11 +336,12 @@ function write_to_disk {
   end_time=$(echo "$5" | sed 's#\ ##')
   break_min=$6
   log_date_input=$7
+  note_text=${8:-}
 
   log_date=$(date +%Y-%m-%d -d "$log_date_input")
   week_date=$(date +%G-%V-%u -d "$log_date_input")
   proj_log_path=$(get_log_path_for_project $project)
-  entry="$week_date/$log_date [$dec_time]{$mil_time} ($start_time $end_time $break_min) [$note]"
+  entry="$week_date/$log_date [$dec_time]{$mil_time} ($start_time $end_time $break_min) [$note_text]"
   echo "$entry" >> $proj_log_path
   logger_debug "Writing log entry $entry to $proj_log_path"
 }
@@ -442,6 +445,7 @@ function calculate_time_with_parameters {
   # break_minutes = $3(mm)
   # project = $4(string)
   # date    = $5(string) (optional)
+  # note    = $6(string) (optional)
 
   t1h=$(echo "${1:0:2}")
   t1m=$(echo "${1:3:5}")
@@ -450,10 +454,10 @@ function calculate_time_with_parameters {
   t3m=$3
   project=$4
   log_date="$5"
+  note=$6
 
   logger_debug "Date: '$log_date'"
-  if [[ ! -z "$log_date" ]]; then
-    date -d "$log_date"
+  if [[ ! -z "${log_date:+foo}" ]]; then
     year_month_day_format=$(date -d "$log_date")
     if [ $? -ne 0 ]; then
       echo "Unknown date '$log_date'"
@@ -463,7 +467,14 @@ function calculate_time_with_parameters {
     log_date=$(date +%Y-%m-%d)
   fi
 
+  if [[ ! -z "${note:+foo}" ]]; then
+    echo "Please enter your note. Finish with enter."
+    read -r note_text
+  fi
+  note_text=${note_text:=}
 
+
+  logger_debug "Time to decimal time inputs: '$t1h' '$t1m' '$t2h' '$t2m' '$t3m'"
   both_times=$(time_to_decimal_time $t1h $t1m $t2h $t2m $t3m)
   dec_time=$(echo $both_times | grep -o '^[0-9]\+\.*[0-9]*')
   mil_time=$(echo $both_times | grep -o '\/[0-9]\+:[0-9]*' | sed 's#\/##')
@@ -473,16 +484,16 @@ function calculate_time_with_parameters {
   echo "Save this to $proj_name project log? y/n"
   read confirm
   logger_debug "Confirm: '$confirm'"
-  [ "$confirm" = "y" ] && write_to_disk $project $dec_time $mil_time "$1" "$2" "$3" "$log_date"
+  [ "$confirm" = "y" ] && write_to_disk $project $dec_time $mil_time "$1" "$2" "$3" "$log_date" "$note_text"
 }
+
+# If empty arguments, call usage
+if [ $# -eq 0 ]; then usage 0; fi
 
 specify_project="n"
 
 # Get all projects for the program
 get_all_projects
-
-# If empty arguments, call usage
-if [ $# -eq 0 ]; then usage 0; fi
 
 # main
 while [[ $# -ge 1 ]]; do
@@ -554,8 +565,9 @@ while [[ $# -ge 1 ]]; do
       usage 0
     ;;
     --note)
-      note=$2
-      shift; shift
+      note="y"
+      logger_debug "--note matched, will prompt later for textual input"
+      shift
     ;;
     --dev)
       logger_debug "Setting '$2' to \$log_path"
@@ -588,12 +600,21 @@ while [[ $# -ge 1 ]]; do
         logger_debug "'$2' was not a project"
       fi
 
-      maybeStart=$2
-      [ ! -z "$2" ] && { logger_debug "Shifting $2"; shift ; }
-      maybeEnd=$2
-      [ ! -z "$2" ] && { logger_debug "Shifting $2"; shift ; }
-      maybeBreak=$2
-      [ ! -z "$2" ] && { logger_debug "Shifting $2"; shift ; }
+      if (test_timestamp "$(parse_timestamp "$2")"); then
+        maybeStart=$2
+        logger_debug "$2 is start timestamp, shifting: '$2'"; shift ;
+      fi
+
+      if (test_timestamp "$(parse_timestamp "$2")"); then
+        maybeEnd=$2
+        logger_debug "$2 is end timestamp, shifting: '$2'"; shift ;
+      fi
+
+      if (test_break "$2"); then
+        maybeBreak=$2
+        logger_debug "$2 is break time, shifting: '$2'."; shift ;
+      fi
+
       shift
     ;;
     --date)
@@ -775,43 +796,61 @@ elif [ ! -z "$show_logs" ]; then
 elif [ ! -z "$log_time" ]; then
   logger_debug "About to log time"
   if [ ! -z "$proj_name" ]; then
-    if [[ -z "$maybeStart" ]]; then
+    # See if we need to prompt the user for timestamps
+    format="8, 800, 8.00, 8:00, 0800, 08.00, 08:00"
+
+    # Start time
+    if [[ ! -z "${maybeStart:+foo}" ]]; then
+      logger_debug "'$maybeStart' was a timestamp"
+      parsed_start_timestamp=$(parse_timestamp "$maybeStart")
+    else
       echo "What start hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835)"
       read start_timestamp
-    else
-      start_timestamp=$maybeStart
+      parsed_start_timestamp="$(parse_timestamp "$start_timestamp")"
+      (test_timestamp "$parsed_start_timestamp")
+      if [ $? -ne 0 ]; then
+        logger_debug "Entered '$start_timestamp' as a start time"
+        echo "'$start_timestamp' does not follow the format '$format'"
+        exit 1
+      fi
     fi
-    if [[ -z "$maybeEnd" ]]; then
+
+    if [[ ! -z "${maybeEnd:+foo}" ]]; then
+      logger_debug "'$maybeEnd' was a timestamp"
+      end_timestamp=$maybeEnd
+      parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
+    else
       echo "What end hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835)"
       read end_timestamp
-    else
-      end_timestamp=$maybeEnd
+      parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
+      (test_timestamp "$parsed_start_timestamp")
+      if [ $? -ne 0 ]; then
+        logger_debug "Entered '$end_timestamp' as a end time"
+        echo "'$end_timestamp' does not follow the format '$format'"
+        exit 1
+      fi
     fi
-    if [[ -z "$maybeBreak" ]]; then
+
+    if [[ ! -z "${maybeBreak:+foo}" ]]; then
+      logger_debug "'$maybeBreak' was a valid number"
+      break_time=$maybeBreak
+    else
       echo "How large of a break(in minutes)?"
       read break_time
-    else
-      break_time=$maybeBreak
+      (test_break "$break_time")
+      if [ $? -ne 0 ]; then
+        echo "'$break_time' is not a number!"; exit 1;
+      fi
     fi
 
-    logger_debug "times: $2 $3 $4"
+    if [[ -z "${note:+foo}" ]]; then
+      note=""
+    fi
 
-    format="8, 800, 8.00, 8:00, 0800, 08.00, 08:00"
-    start_time=$(parse_timestamp "$start_timestamp")
-    k=$(test_timestamp "$start_time")
-    [ $? -eq 0 ] || { echo "'$start_time' is not a number! '$start_time' does not follow $format"; echo "$k"; usage 1; }
 
-    stop_time=$(parse_timestamp "$end_timestamp")
-    k=$(test_timestamp "$end_time")
-    [ $? -eq 0 ] || { echo "'$end_time' is not a number! '$end_time' does not follow $format"; echo "$k"; usage 1; }
-
-    break_minutes=$break_time
-    k="$(test_break $break_time)"
-    [ $? -eq 0 ] || { echo "'$break_time' is not a number!"; usage 1; }
-
-    logger_debug "Inputs: Start:$start_timestamp End:$end_timestamp Break:$break_time"
-    logger_debug "Parsed: Start:$start_time End:$stop_time Break:$break_minutes"
-    calculate_time_with_parameters "$start_time" "$stop_time" $break_minutes $proj_name "$log_date"
+    logger_debug "Assumed inputs: Start:$maybeStart End:$maybeEnd Break:$maybeBreak"
+    logger_debug "Parsed: Start:$parsed_start_timestamp End:$parsed_end_timestamp Break:$break_time"
+    calculate_time_with_parameters "$parsed_start_timestamp" "$parsed_end_timestamp" "$break_time" "$proj_name" "$log_date" "$note"
   else
     logger_debug "Could not log time since the project name send to this section was unset."
   fi
