@@ -36,9 +36,9 @@ Timelog is a script written for keeping track of time for projects.
 It will log time inputed via this CLI to store it to the disk in $HOME/.config/timelog/project_id.log.
 
 Usage: timelog
- - log (project_id) (start time) (end time) (break time)
+ - log (project_id) (start time) (end time) (break time) [--note]
  - list project
- - show logs (project_id) (week) [year] | (--raw)
+ - show logs (project_id) (week) [year] [--raw]
  - delete project
  - --help
  - --version
@@ -48,7 +48,7 @@ For debugging, run with -v
 
 To see examples, run timelog --examples
 All arguments in parenthesis will be prompted to the user if not supplied
-All arguments in brackets are optional which will have a default value if not supplied.
+All arguments in brackets are optional
 ```
 
 ### Commands
@@ -60,9 +60,11 @@ to create a new project(interactively)
 
 to list current projects that are configured
 
-`timelog log (project id) (start time) (end time) (break time)`
+`timelog log (project id) (start time) (end time) (break time) [--note]`
 
-to log project for `project id` using `start time` `end time` `break time`
+to log project for `project id` using `start time` `end time` `break time`.
+
+It's also possible to log a note for the entry with `--note`. A prompt will later let you fill in text.
 
 `timelog show logs (project id) (week) (year) | (--raw)`
 
@@ -195,7 +197,7 @@ The program will prompt for input after it has been invoked.
 
 ---
 ##### Log project
-`timelog log (project id) (start_time) (end time) (break time)`
+`timelog log (project id) (start_time) (end time) (break time) [--note]`
 
 `log` is a keyword.
 
@@ -206,6 +208,8 @@ The program will prompt for input after it has been invoked.
 `end time` Optional/prompted. Is a timestamp to end logging time. `8, 8:00, 800, 08:00, 0800` is all valid and mean the same thing.
 
 `break time` Optional/prompted. Is the total amount of minutes to deduct from the calculation. Enter `0` for no breaks.
+
+`--note` Optional. Able to process text from the prompt to make a note that is visible in the `show logs` command.
 
 ---
 
