@@ -12,7 +12,7 @@ mkdir dev/
 dir=$(echo "$PWD/dev")
 
 createProjectWithParams() {
-timelog $debug --dev $dir create project > /dev/null <<END
+timelog $debug --dev $dir create project >/dev/null <<END
 $1
 $2
 $3
@@ -271,6 +271,64 @@ END
   assertTrue "Worked hours was not 10" "[ ! -z '$worked_hours' ]"
 
   deleteProject
+  deleteProject
+}
+
+testLogWithNote() {
+  createProjectTest
+  current_week=$(date +%V)
+  note="Bash stuff, meeting at 9."
+timelog $debug --dev $dir log ts >/dev/null << END
+08:00
+12:00
+0
+y
+END
+  assertTrue "The exit code of log creation without --note opt was not 0" "[ $? -eq 0 ]"
+
+  output=$(timelog $debug --dev $dir show logs ts "$current_week")
+  assertTrue "The exit code of show logs was not 0" "[ $? -eq 0 ]"
+
+  # A day should display: "day: 4h / 04:00 " Notice the space at the end.
+  # If a log entry with no --note, there should not be any more stuff beside what's listed above.
+  end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
+  assertTrue "When creating a log entry with no note, note text was inserted " "[ ! -z '$end_of_day_line' ]"
+
+timelog $debug --dev $dir log ts --note  >/dev/null << END
+08:00
+12:00
+0
+$note
+y
+END
+  assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
+
+  output=$(timelog $debug --dev $dir show logs ts "$current_week")
+  assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
+
+  log_note=$(echo "$output" | grep -o "$note")
+  assertTrue "A note entry was not found when showing logs" "[ '$log_note' = '$note' ]"
+  deleteProject
+}
+
+testLogNoteWithEmptyNote() {
+  createProjectTest
+  current_week=$(date +%V)
+  note="Bash stuff, meeting at 9."
+timelog --dev $dir log ts --note << END
+08:00
+12:00
+0
+
+y
+END
+  assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
+
+  output=$(timelog $debug --dev $dir show logs ts "$current_week")
+  assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
+
+  end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
+  assertTrue "A note entry was found when showing logs" "[ ! -z '$end_of_day_line' ]"
   deleteProject
 }
 
