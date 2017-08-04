@@ -9,7 +9,7 @@ log_level=0
 # Version
 VERSION="0.4.0"
 
-# A phrase to type out to uninstall the software
+# A phrase to type out to purge the logs/configuration..
 PURGE_PHRASE="timelog"
 
 function logger_debug {
@@ -21,9 +21,9 @@ function usage {
   echo "It will log time inputed via this CLI to store it to the disk in \$HOME/.config/timelog/project_id.log."
   echo ""
   echo "Usage: $(basename $0)"
-  echo " * log (project_id) (start time, end time, break time)"
+  echo " * log (project_id) (start time, end time, break time) [--note]"
   echo " * list project"
-  echo " * show logs (project_id) (week) | (--raw)"
+  echo " * show logs (project_id) (week) [--raw]"
   echo " * delete project"
   echo " * --help"
   echo " * --version"
@@ -32,7 +32,7 @@ function usage {
   echo "For debugging, run with -v"
   echo "To see examples, run $(basename $0) --examples"
   echo "All arguments in parenthesis will be prompted to the user if not supplied"
-  echo "All arguments in brackets are optional which will have a default value if not supplied."
+  echo "All arguments in brackets are optional."
   [ $1 -eq 1 ] && exit 1 || exit 0
 }
 
