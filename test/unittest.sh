@@ -9,10 +9,10 @@ else debug=""; fi
 
 # Create test directory
 mkdir dev/
-dir=$(echo "$PWD/dev")
+dir="$PWD/dev"
 
 createProjectWithParams() {
-timelog $debug --dev $dir create project >/dev/null <<END
+timelog $debug --dev "$dir" create project >/dev/null <<END
 $1
 $2
 $3
@@ -22,7 +22,7 @@ END
 }
 
 logProjectTest() {
-timelog $debug --dev $dir log ts 0800 1800 0 >/dev/null <<END
+timelog $debug --dev "$dir" log ts 0800 1800 0 >/dev/null <<END
 y
 END
 }
@@ -31,11 +31,6 @@ testFileSystem() {
   touch foo
   assertTrue "Can not create files on filesystem" "[ -f foo ]"
   rm foo
-}
-
-testHasTimelogBinary() {
-  k=$(which timelog 2>&1 >/dev/null ; echo $?)
-  assertTrue "Timelog binary was not found" "[ $k -eq 0 ]"
 }
 
 createProjectTest() {
@@ -47,22 +42,27 @@ createProjectWithoutMoneyPerHour() {
 }
 
 deleteProject() {
-timelog $debug --dev $dir delete project > /dev/null << END
+timelog $debug --dev "$dir" delete project > /dev/null << END
 1
 y
 END
 }
 
+testHasTimelogBinary() {
+  k=$(which timelog 2>&1 >/dev/null ; echo $?)
+  assertTrue "Timelog binary was not found" "[ $k -eq 0 ]"
+}
+
 testCreateAndDeleteProject() {
   createProjectTest
   code=$?
-  proj_name=$(grep -o 'project_name\ *\=\ *Test' $dir/def/Test)
-  proj_id=$(grep -o 'project_id\ *\=\ *Test' $dir/def/Test)
-  target=$(grep -o 'target_hours\ *\=\ *40' $dir/def/Test)
-  mph=$(grep -o 'money_per_hour\ *\=\ *140' $dir/def/Test)
-  curr=$(grep -o 'currency\ *\=\ *kr' $dir/def/Test)
+  proj_name=$(grep -o 'project_name\ *\=\ *Test' "$dir/def/Test")
+  proj_id=$(grep -o 'project_id\ *\=\ *Test' "$dir/def/Test")
+  target=$(grep -o 'target_hours\ *\=\ *40' "$dir/def/Test")
+  mph=$(grep -o 'money_per_hour\ *\=\ *140' "$dir/def/Test")
+  curr=$(grep -o 'currency\ *\=\ *kr' "$dir/def/Test")
   assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
-  assertTrue "Definition file could not be created" "[ -f $dir/def/Test ]"
+  assertTrue "Definition file could not be created" "[ -f "$dir/def/Test" ]"
   assertTrue "Log file could not be created" "[ -f $dir/Test.logs ]"
   assertTrue "Project name was not retrieved" "[ ! -z $proj_name ]"
   assertTrue "Project id was not retrieved" "[ -f $proj_id ]"
@@ -79,11 +79,11 @@ testCreateAndDeleteProject() {
 
 testCreateProjectWithoutMoneyPerHour() {
   createProjectWithoutMoneyPerHour
-  proj_name=$(grep -o 'project_name\ *\=\ *Test' $dir/def/Test2)
-  proj_id=$(grep -o 'project_id\ *\=\ *Test' $dir/def/Test2)
-  target=$(grep -o 'target_hours\ *\=\ *40' $dir/def/Test2)
-  mph=$(grep -o 'money_per_hour\ *\=\ *140' $dir/def/Test2)
-  curr=$(grep -o 'currency\ *\=\ *kr' $dir/def/Test2)
+  proj_name=$(grep -o 'project_name\ *\=\ *Test' "$dir/def/Test2")
+  proj_id=$(grep -o 'project_id\ *\=\ *Test' "$dir/def/Test2")
+  target=$(grep -o 'target_hours\ *\=\ *40' "$dir/def/Test2")
+  mph=$(grep -o 'money_per_hour\ *\=\ *140' "$dir/def/Test2")
+  curr=$(grep -o 'currency\ *\=\ *kr' "$dir/def/Test2")
   assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
   assertTrue "Definition file could not be created" "[ -f $dir/def/Test2 ]"
   assertTrue "Log file could not be created" "[ -f $dir/Test2.logs ]"
@@ -98,7 +98,7 @@ testCreateProjectWithoutMoneyPerHour() {
 
 testListProjects() {
   createProjectTest
-  k=$(timelog $debug --dev $dir list projects)
+  k=$(timelog $debug --dev "$dir" list projects)
   code=$?
   match=$(echo "$k" | grep "1:\ Test\ \[ts\]")
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
@@ -108,14 +108,14 @@ testListProjects() {
 
 testLogProject() {
   createProjectTest
-timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null <<END
+timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null <<END
 n
 END
   code=$?
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
   assertTrue "A log entry was created when specified not to create" "[ $(cat $dir/Test.logs | wc -l) -eq 0 ]"
 
-timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null <<END
+timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null <<END
 y
 END
   code=$?
@@ -135,14 +135,14 @@ testLogProjectWithDate() {
   day="2017-01-01"
   nextDay="2017-01-02"
   createProjectTest
-timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null --date "$day" <<END
+timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null --date "$day" <<END
 y
 END
   code=$?
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
   assertTrue "A log entry was not created when specifying custom date" "[ $( wc -l < $dir/Test.logs) -eq 1 ]"
 
-timelog $debug --dev $dir log ts 0800 1100 0 --date "$nextDay" >/dev/null <<END
+timelog $debug --dev "$dir" log ts 0800 1100 0 --date "$nextDay" >/dev/null <<END
 y
 END
   code=$?
@@ -176,7 +176,7 @@ testLogWeekFirstOfJan() {
   day="2017-01-01"
   year_week_day_of_date="2016-52-7"
   createProjectTest
-timelog $debug --dev $dir log ts 0800 1000 0 >/dev/null --date "$day" <<END
+timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null --date "$day" <<END
 y
 END
   code=$?
@@ -193,7 +193,7 @@ END
 testLogProjectwithObscureTime() {
   createProjectTest
 
-timelog $debug --dev $dir log ts 0840 1802 34 >/dev/null <<END
+timelog $debug --dev "$dir" log ts 0840 1802 34 >/dev/null <<END
 y
 END
   code=$?
@@ -211,10 +211,10 @@ testShowWeeklyLogs() {
   createProjectTest
   current_week=$(date +%V)
   today=$(date +%A)
-timelog $debug --dev $dir log ts 0840 1802 34 >/dev/null << END
+timelog $debug --dev "$dir" log ts 0840 1802 34 >/dev/null << END
 y
 END
-  capture=$(timelog --dev $dir show logs ts $current_week)
+  capture=$(timelog --dev "$dir" show logs ts $current_week)
   cmd=$(grep -q "Days worked for week $current_week" <<< $capture ; echo $?)
   assertTrue "Weekly stats for $today was recorded" "[ $cmd -eq 0 ]"
   cmd=$(grep -q "$today: 8\.8h \/ 08:48" <<< $capture ; echo $?)
@@ -228,7 +228,7 @@ testShowWeeklyLogsEmpty() {
   current_week=$(date +%V)
   current_year=$(date +%Y)
   today=$(date +%A)
-  capture=$(timelog --dev $dir show logs ts $current_week)
+  capture=$(timelog --dev "$dir" show logs ts $current_week)
   cmd=$(grep -q "Nothing worked on week $current_week year $current_year for project Test" <<< "$capture"; echo $?)
   assertTrue "When nothing was logged, the output wasn't nothing" "[ $cmd -eq 0 ]"
 
@@ -239,10 +239,10 @@ testMultipleprojects() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
   createProjectWithParams "Test2" "ts2" "40" "240" "kr"
 
-  projects=$(timelog $debug --dev $dir list projects | grep '^[0-9]:' | wc -l)
+  projects=$(timelog $debug --dev "$dir" list projects | grep -c '^[0-9]:')
   assertTrue "There was not two projects created: $projects counted" "[ $projects -eq 2 ]"
 
-timelog $debug --dev $dir log >/dev/null << END
+timelog $debug --dev "$dir" log >/dev/null << END
 1
 08:00
 12:00
@@ -250,7 +250,7 @@ timelog $debug --dev $dir log >/dev/null << END
 y
 END
 
-timelog $debug --dev $dir log >/dev/null << END
+timelog $debug --dev "$dir" log >/dev/null << END
 2
 08:00
 18:00
@@ -258,13 +258,13 @@ timelog $debug --dev $dir log >/dev/null << END
 y
 END
 
-  logs=$(timelog $debug --dev $dir show logs ts1 $(date +%V))
+  logs=$(timelog $debug --dev "$dir" show logs ts1 $(date +%V))
   remaining_hours=$(echo "$logs" | grep -o 'You have 36 hours more to work')
   worked_hours=$(echo "$logs" | grep -o 'You have worked for 4 hours')
   assertTrue "Remaining hours was not 36" "[ ! -z '$remaining_hours' ]"
   assertTrue "Worked hours was not 4" "[ ! -z '$worked_hours' ]"
 
-  logs=$(timelog $debug --dev $dir show logs ts2 $(date +%V))
+  logs=$(timelog $debug --dev "$dir" show logs ts2 $(date +%V))
   remaining_hours=$(echo "$logs" | grep -o 'You have 30 hours more to work')
   worked_hours=$(echo "$logs" | grep -o 'You have worked for 10 hours')
   assertTrue "Remaining hours was not 30" "[ ! -z '$remaining_hours' ]"
@@ -278,7 +278,7 @@ testLogWithNote() {
   createProjectTest
   current_week=$(date +%V)
   note="Bash stuff, meeting at 9."
-timelog $debug --dev $dir log ts >/dev/null << END
+timelog $debug --dev "$dir" log ts >/dev/null << END
 08:00
 12:00
 0
@@ -286,7 +286,7 @@ y
 END
   assertTrue "The exit code of log creation without --note opt was not 0" "[ $? -eq 0 ]"
 
-  output=$(timelog $debug --dev $dir show logs ts "$current_week")
+  output=$(timelog $debug --dev "$dir" show logs ts "$current_week")
   assertTrue "The exit code of show logs was not 0" "[ $? -eq 0 ]"
 
   # A day should display: "day: 4h / 04:00 " Notice the space at the end.
@@ -294,7 +294,7 @@ END
   end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
   assertTrue "When creating a log entry with no note, note text was inserted " "[ ! -z '$end_of_day_line' ]"
 
-timelog $debug --dev $dir log ts --note  >/dev/null << END
+timelog $debug --dev "$dir" log ts --note  >/dev/null << END
 08:00
 12:00
 0
@@ -303,7 +303,7 @@ y
 END
   assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
 
-  output=$(timelog $debug --dev $dir show logs ts "$current_week")
+  output=$(timelog $debug --dev "$dir" show logs ts "$current_week")
   assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
 
   log_note=$(echo "$output" | grep -o "$note")
@@ -315,7 +315,7 @@ testLogNoteWithEmptyNote() {
   createProjectTest
   current_week=$(date +%V)
   note="Bash stuff, meeting at 9."
-timelog --dev $dir log ts --note << END
+timelog --dev "$dir" log ts --note >/dev/null << END
 08:00
 12:00
 0
@@ -324,7 +324,7 @@ y
 END
   assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
 
-  output=$(timelog $debug --dev $dir show logs ts "$current_week")
+  output=$(timelog $debug --dev "$dir" show logs ts "$current_week")
   assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
 
   end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
@@ -340,7 +340,7 @@ testDifferentInputFormats() {
   for it in $list; do
     begin=$(echo "$it" | grep -o "[0-9]*\:*\.*[0-9]*," | sed 's#,##')
     end=$(echo "$it" | grep -o ",[0-9]*\:*\.*[0-9]*" | sed 's#,##')
-entry=$(timelog $debug --dev $dir log ts "$begin" "$end" 0 <<END
+entry=$(timelog $debug --dev "$dir" log ts "$begin" "$end" 0 <<END
 n
 END
 )
@@ -360,12 +360,12 @@ testUnknownArgumemt() {
 testPurge() {
   createProjectTest
   logProjectTest
-timelog $debug --dev $dir --purge << END
+timelog $debug --dev "$dir" --purge >/dev/null << END
 timelog
 END
   assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
 }
 
-rm -r $dir/
+rm -r "$dir/"
 
 . shunit2-2.1.6/src/shunit2
