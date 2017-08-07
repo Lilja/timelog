@@ -66,9 +66,9 @@ to log project for `project id` using `start time` `end time` `break time`.
 
 It's possible to log a note for the entry with `--note`. A prompt will later let you fill in text.
 
-It's also possible to log something that is different from today. Specify a date with --date like \`--date 2017-01-01\` to log for the 1st of Jan, 2017.
+It's also possible to log something that is different from today. Specify a date with `--date` like `--date 2017-01-01` to log for the `1st of Jan, 2017`.
 
-`timelog show logs (project id) (week) (year) | (--raw)`
+`timelog show logs (project id) (week) (year) | [--raw]`
 
 to show logs for a `project id` during `week number` and `year` or specify `--raw` to open up the logs with `less`
 
