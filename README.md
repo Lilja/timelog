@@ -36,7 +36,7 @@ Timelog is a script written for keeping track of time for projects.
 It will log time inputed via this CLI to store it to the disk in $HOME/.config/timelog/project_id.log.
 
 Usage: timelog
- - log (project_id) (start time) (end time) (break time) [--note]
+ - log (project_id) (start time) (end time) (break time) [--note] [--date timestamp]
  - list project
  - show logs (project_id) (week) [year] [--raw]
  - delete project
@@ -60,13 +60,15 @@ to create a new project(interactively)
 
 to list current projects that are configured
 
-`timelog log (project id) (start time) (end time) (break time) [--note]`
+`timelog log (project id) (start time) (end time) (break time) [--note] [--date]`
 
 to log project for `project id` using `start time` `end time` `break time`.
 
-It's also possible to log a note for the entry with `--note`. A prompt will later let you fill in text.
+It's possible to log a note for the entry with `--note`. A prompt will later let you fill in text.
 
-`timelog show logs (project id) (week) (year) | (--raw)`
+It's also possible to log something that is different from today. Specify a date with `--date` like `--date 2017-01-01` to log for the `1st of Jan, 2017`.
+
+`timelog show logs (project id) (week) (year) | [--raw]`
 
 to show logs for a `project id` during `week number` and `year` or specify `--raw` to open up the logs with `less`
 
@@ -210,6 +212,8 @@ The program will prompt for input after it has been invoked.
 `break time` Optional/prompted. Is the total amount of minutes to deduct from the calculation. Enter `0` for no breaks.
 
 `--note` Optional. Able to process text from the prompt to make a note that is visible in the `show logs` command.
+
+`--date` Optional. Possible to log for a different date, specify with `--date timestamp` where `timestamp` is something the program `date` can format.
 
 ---
 

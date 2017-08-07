@@ -7,7 +7,7 @@ log_path="$HOME/.config/timelogs"
 log_level=0
 
 # Version
-VERSION="0.4.0"
+VERSION="0.4.1"
 
 # A phrase to type out to purge the logs/configuration..
 PURGE_PHRASE="timelog"
@@ -21,7 +21,7 @@ function usage {
   echo "It will log time inputed via this CLI to store it to the disk in \$HOME/.config/timelog/project_id.log."
   echo ""
   echo "Usage: $(basename $0)"
-  echo " * log (project_id) (start time, end time, break time) [--note]"
+  echo " * log (project_id) (start time, end time, break time) [--note] [--date timestamp]"
   echo " * list project"
   echo " * show logs (project_id) (week) [--raw]"
   echo " * delete project"
@@ -255,7 +255,7 @@ function get_project_from_id {
   echo "$all_projects" | grep "\[$1\]" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
 }
 
-function describe_project {
+function create_project {
   echo "Creating a new project"
   echo "What would you like to call it?"
   read project_name
@@ -458,12 +458,22 @@ function calculate_time_with_parameters {
 
   logger_debug "Date: '$log_date'"
   if [[ ! -z "${log_date:+foo}" ]]; then
-    year_month_day_format=$(date -d "$log_date")
-    if [ $? -ne 0 ]; then
+    logger_debug "Log date is set to something"
+    if [ $log_date == "prompt" ]; then
+      logger_debug "Log date needs to be prompted"
+      echo "Please enter a date with the format YYY-mm-dd. For example, 2017-01-02 for 2nd Jan 2017"
+      read -r log_date
+    fi
+
+    year_month_day_format=$(date -d "$log_date" 1>/dev/null 2>&1)
+    code=$?
+    if [ $code -ne 0 ]; then
+      logger_debug "Log date supplied was faulty. Did not follow a format that \`date\` understand"
       echo "Unknown date '$log_date'"
       exit 1
     fi
   else
+    logger_debug "Log date was not supplied at all. Set to now."
     log_date=$(date +%Y-%m-%d)
   fi
 
@@ -618,9 +628,17 @@ while [[ $# -ge 1 ]]; do
       shift
     ;;
     --date)
-      log_date=$2
-      logger_debug "Log date: '$2'"
-      shift ; shift
+      (date -d "$2" 1>/dev/null 2>&1)
+      code=$?
+      if [ ! -z "$2" ] && [ $code -eq 0 ]; then
+        logger_debug "Log date set through arguments '$2'"
+        log_date=$2
+        shift
+      else
+        logger_debug "Log date not supplied with --date. Will prompt later."
+        log_date="prompt"
+      fi
+      shift
     ;;
     -v)
       logger_debug "Debug is toggled"
@@ -742,7 +760,7 @@ fi
 # List projects
 #############################################################
 if [ ! -z $new_project ]; then
-  describe_project
+  create_project
 fi
 
 #############################################################
@@ -846,7 +864,6 @@ elif [ ! -z "$log_time" ]; then
     if [[ -z "${note:+foo}" ]]; then
       note=""
     fi
-
 
     logger_debug "Assumed inputs: Start:$maybeStart End:$maybeEnd Break:$maybeBreak"
     logger_debug "Parsed: Start:$parsed_start_timestamp End:$parsed_end_timestamp Break:$break_time"
