@@ -134,6 +134,7 @@ END
 testLogProjectWithDate() {
   day="2017-01-01"
   nextDay="2017-01-02"
+  nextDayAfterThat="2017-01-03"
   createProjectTest
 timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null --date "$day" <<END
 y
@@ -166,6 +167,29 @@ END
   assertTrue "Decimal time was not 3" "[ $dec_time -eq 3 ]"
   assertTrue "HH:mm time was not 03:00" "[ $mil_time = '03:00' ]"
   assertTrue "Custom date was not $nextDay" "[ '$dayTwoDate' = '/$nextDay' ]"
+
+timelog $debug --dev "$dir" log ts 0800 1100 0 --date >/dev/null <<END
+$nextDayAfterThat
+y
+END
+  code=$?
+  logs=$(cat "$dir/Test.logs")
+  amount_of_logs=$(wc -l < $dir/Test.logs 2>/dev/null)
+  dayThreeDate=$(echo "$logs" | grep -o "\/$nextDayAfterThat")
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "A log entry was not created when specifing date throught prompt. The amount of logs are: '$amount_of_logs'" "[ $amount_of_logs -eq 3 ]"
+  assertTrue "Custom date was not '$nextDayAfterThat', '$dayThreeDate'" "[ '$dayThreeDate' = '/$nextDayAfterThat' ]"
+
+  deleteProject
+}
+
+testLogProjectWithFaultyDate() {
+  createProjectTest
+timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null --date "20asdwdawdqw" <<END
+END
+  code=$?
+  assertTrue "Exit code was 0" "[ $code -ne 0 ]"
+  assertTrue "A log entry was created when specifying a faulty custom date" "[ $( wc -l < $dir/Test.logs) -eq 0 ]"
 
   deleteProject
 }
