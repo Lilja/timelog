@@ -37,4 +37,4 @@ ARG TRAVIS_JOB_ID
 ENV TRAVIS_JOB_ID=${TRAVIS_JOB_ID}
 
 RUN cd /tmp/timelog/test && kcov --coveralls-id=${TRAVIS_JOB_ID} --include-path=/tmp/timelog/bin/timelog /tmp/cov/ unittest.sh
-RUN /bin/bash -c <(curl -s https://codecov.io/bash) -s /tmp/cov
+RUN /bin/bash -c "<(curl -s https://codecov.io/bash) -s /tmp/cov"
