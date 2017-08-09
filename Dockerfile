@@ -36,5 +36,6 @@ ENV PS4=+
 ARG TRAVIS_JOB_ID
 ENV TRAVIS_JOB_ID=${TRAVIS_JOB_ID}
 
+RUN ln -s /bin/bash /bin/sh
 RUN cd /tmp/timelog/test && kcov --coveralls-id=${TRAVIS_JOB_ID} --include-path=/tmp/timelog/bin/timelog /tmp/cov/ unittest.sh
 RUN  bash <(curl -s https://codecov.io/bash) -s /tmp/cov
