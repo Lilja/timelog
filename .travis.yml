@@ -23,5 +23,9 @@ script:
   - docker run --name kcov_container kcov_img ls
   - mkdir cov/
   - docker cp kcov_container2:/tmp/cov cov/
-  - cd cov && bash <(curl -s https://codecov.io/bash)
+  - cd cov
+  - ls -l
+  - pwd
+  - ls -l cov
+  - bash <(curl -s https://codecov.io/bash)
 
