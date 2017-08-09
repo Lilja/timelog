@@ -48,15 +48,17 @@ function examples {
 }
 
 function list_projects {
-  files=$(ls $log_path/def/ 2>/dev/null)
+  files=$(ls "$log_path/def/" 2>/dev/null)
   it=1
-  for file_name in $files; do
-    file=$(cat $log_path/def/$file_name)
-    name=$(echo "$file" | grep -o 'project_name\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
-    id=$(echo "$file" | grep -o 'project_id\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
-    printf "${it}: $name [$id]\n"
-    it=$((it+1))
-  done
+  while read -r file_name; do
+    if [ -f "$log_path/def/$file_name" ]; then
+      file=$(cat "$log_path/def/$file_name")
+      name=$(echo "$file" | grep -o 'project_name\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
+      id=$(echo "$file" | grep -o 'project_id\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1')
+      printf "${it}: $name [$id]\n"
+      it=$((it+1))
+    fi
+  done <<< "$files"
 }
 
 function get_project_meta_info {
@@ -208,10 +210,10 @@ function test_timestamp {
   [ ! -z "$k" ] && [ "$k" == "$1" ] && exit 0 || exit 1
 }
 
-function test_break {
-  k=$(echo $1 | grep -o '[0-9]*')
-  logger_debug "test_break: '$1' => '$k'"
-  [ ! -z "$k" ] && [ $k == $1 ] && exit 0 || exit 1
+function test_is_number {
+  k=$(echo "$1" | grep -o '[0-9]*')
+  logger_debug "test_is_number: '$1' => '$k'"
+  if [ ! -z "$k" ] && [ "$k" == "$1" ]; then exit 0 ; else exit 1; fi
 }
 
 function does_project_exist {
@@ -255,36 +257,55 @@ function get_project_from_id {
   echo "$all_projects" | grep "\[$1\]" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
 }
 
+
 function create_project {
   echo "Creating a new project"
   echo "What would you like to call it?"
-  read project_name
+  read -r project_name
 
   echo "What is an ID that you would call it?"
   echo "(This is used to specify which project you would like to submit time to)"
-  read project_id
+  read -r project_id
 
   echo "What is the target hours per week?"
-  read target_hours
+  read -r target_hours
+  temp_target_hours=$(test_is_number "$target_hours")
+  if [ $? -ne 0 ]; then
+    logger_debug "'$target_hours' did not contain a [0-9]* pattern"
+    echo "'$target_hours' is not a valid number." ; exit 1
+  fi
+  target_hours=$target_hours
 
   echo "What does the project pay(per hour)? Enter s to skip"
-  read money_per_hour
+  read -r money_per_hour
+  temp_money_per_hour=$(test_is_number "$money_per_hour")
+  code=$?
+  if [ $code -ne 0 ] && [ "$money_per_hour" != "s" ]; then
+    logger_debug "'$money_per_hour' did not contain a [0-9]* pattern"
+    echo "'$money_per_hour' is not a valid number." ; exit 1
+  elif [ "$money_per_hour" == "s" ]; then
+    logger_debug "Skip money per hour"
+    money_per_hour="s"
+  else
+    logger_debug "money per hour: '$money_per_hour'"
+    money_per_hour=$money_per_hour
+  fi
 
   if [ "$money_per_hour" != "s" ]; then
     echo "What is the currency paid?"
-    read currency
+    read -r currency
   fi
 
   if [ ! -f "$log_path/def/$project_name" ]; then
-    logger_debug "Initalizing project $project_name"
-    touch $log_path/def/$project_name
-    touch $log_path/$project_name.logs
-    echo "project_name=$project_name" > $log_path/def/$project_name
-    echo "project_id=$project_id" >> $log_path/def/$project_name
-    echo "target_hours=$target_hours" >> $log_path/def/$project_name
+    logger_debug "Initalizing project '${project_name}'"
+    touch "$log_path/def/${project_name}"
+    touch "$log_path/${project_name}.logs"
+    echo "project_name=$project_name" > "$log_path/def/$project_name"
+    echo "project_id=$project_id" >> "$log_path/def/$project_name"
+    echo "target_hours=$target_hours" >> "$log_path/def/$project_name"
     if [ "$money_per_hour" != "s" ]; then
-      echo "money_per_hour=$money_per_hour" >> $log_path/def/$project_name
-      echo "currency=$currency" >> $log_path/def/$project_name
+      echo "money_per_hour=$money_per_hour" >> "$log_path/def/$project_name"
+      echo "currency=$currency" >> "$log_path/def/$project_name"
     fi
   else
     echo "Could not create project, it already exists!"
@@ -293,15 +314,15 @@ function create_project {
 }
 
 function init_program {
-  mkdir -p $log_path; logger_debug "Created $log_path";
-  mkdir $log_path/def/; logger_debug "Created $log_path/def";
-  touch $log_path/config
-  echo "default_project=" > $log_path/config
   logger_debug "Initalizing the program. Creating folder and config."
+  mkdir -p "$log_path"; logger_debug "Created '$log_path'";
+  mkdir "$log_path/def/"; logger_debug "Created '$log_path/def'";
+  touch "$log_path/config"
+  echo "default_project=" > "$log_path/config"
 }
 
 function get_default_project {
-  cat $log_path/config | grep -o 'default_project\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1'
+  cat "$log_path/config" | grep -o 'default_project\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1'
 }
 
 function get_project {
@@ -314,9 +335,7 @@ function get_project {
 
 function is_program_inited {
   if [ -f $log_path/config ] ; then exit 0
-  else
-    logger_debug "The program is not initialized"
-    exit 1
+  else exit 1
   fi
 }
 
@@ -508,7 +527,7 @@ get_all_projects
 # main
 while [[ $# -ge 1 ]]; do
   logger_debug "Processing '$1'"
-  case $1 in
+  case "$1" in
     create)
       case "$2" in
         project)
@@ -581,7 +600,8 @@ while [[ $# -ge 1 ]]; do
     ;;
     --dev)
       logger_debug "Setting '$2' to \$log_path"
-      log_path=$2
+      [ ! -d "$2" ] && { echo "'$2' must be a directory!"; exit 1; }
+      log_path="$2"
       get_all_projects
       project_ids_only=$(echo "$all_projects" | grep -o '\[.*\]')
       logger_debug "'$2' contains the project ids: '$project_ids_only'"
@@ -620,7 +640,7 @@ while [[ $# -ge 1 ]]; do
         logger_debug "$2 is end timestamp, shifting: '$2'"; shift ;
       fi
 
-      if (test_break "$2"); then
+      if (test_is_number "$2"); then
         maybeBreak=$2
         logger_debug "$2 is break time, shifting: '$2'."; shift ;
       fi
@@ -706,7 +726,13 @@ done
 # If want to purge, don't init
 if [ -z "$purge" ]; then
   k=$(is_program_inited)
-  if [ $? -eq 1 ]; then init_program; fi
+  if [ $? -eq 1 ]; then
+    logger_debug "Program uninted. Initing program"
+    init_program
+  else
+    logger_debug "No need to init program"
+  fi
+  get_all_projects
 else
   logger_debug "Uninstall toggled"
   logger_debug "User should match '$PURGE_PHRASE' to delete all configuration/logs"
@@ -799,7 +825,7 @@ elif [ ! -z "$show_logs" ]; then
         get_project_meta_info $proj_name
         logger_debug "Showing logs for $proj_name given week $show_logs_week"
         if [ -z "$year" ]; then year=$(date +%Y); fi
-        week_stats "$(cat $log_path/$proj_name.logs)" "$show_logs_week" "$year"
+        week_stats "$(cat "$log_path/$proj_name.logs")" "$show_logs_week" "$year"
       fi
     else
       logger_debug "About to start less with $log_path/${proj_name}.logs as argument"
@@ -855,7 +881,7 @@ elif [ ! -z "$log_time" ]; then
     else
       echo "How large of a break(in minutes)?"
       read break_time
-      (test_break "$break_time")
+      (test_is_number "$break_time")
       if [ $? -ne 0 ]; then
         echo "'$break_time' is not a number!"; exit 1;
       fi

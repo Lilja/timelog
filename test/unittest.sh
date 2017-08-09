@@ -1,15 +1,15 @@
 #!/bin/bash
 
-rm -r dev/
 if [[ $1 = "-v" ]]; then debug="-v"; shift
 else debug=""; fi
 
+dir="$PWD/dev"
+
 # Clean test directory if need to
-[ -d dev ] && rm -r dev/
+[ -d "$dir" ] && rm -r "$dir"
 
 # Create test directory
-mkdir dev/
-dir="$PWD/dev"
+mkdir "$dir"
 
 createProjectWithParams() {
 timelog $debug --dev "$dir" create project >/dev/null <<END
@@ -53,6 +53,12 @@ testHasTimelogBinary() {
   assertTrue "Timelog binary was not found" "[ $k -eq 0 ]"
 }
 
+testWhenEmptyProjectInitally() {
+  output=$(timelog --dev "$dir" list project_id >/dev/null)
+  assertTrue "When no project have been created, there are projects created with list project_id" "[ -z '$output' ]"
+  if [ ! -z "$output" ]; then exit 1; fi
+}
+
 testCreateAndDeleteProject() {
   createProjectTest
   code=$?
@@ -77,8 +83,39 @@ testCreateAndDeleteProject() {
   assertTrue "Log file was not deleted" "[ ! -f $dir/Test.logs ]"
 }
 
+testCreateProjectWithShadyProjectName() {
+  proj_name="Test { }"
+  createProjectWithParams "$proj_name" "test2" "40" "40" "kr"
+  code=$?
+
+  assertTrue "Exit code for create project was not 0" "[ $code -eq 0 ]"
+  assertTrue "No log file created with project name '$proj_name'" "[ -f '$dir/$proj_name.logs' ]"
+  assertTrue "No definition file created with project name '$proj_name' " "[ -f '$dir/def/$proj_name' ]"
+
+  deleteProject
+
+  createProjectWithParams "Test" "test2" "40" "40d"
+  code=$?
+  assertTrue "Exit code for faulty create project was not 1" "[ $code -eq 1 ]"
+
+}
+
+testCreateProjectWithFaultyParams() {
+  createProjectWithParams "Test" "test2" "40d"
+  code=$?
+  assertTrue "Exit code for faulty create project was not 1" "[ $code -eq 1 ]"
+
+  createProjectWithParams "Test" "test2" "40" "40d"
+  code=$?
+  assertTrue "Exit code for faulty create project was not 1" "[ $code -eq 1 ]"
+
+  projects=$(ls "$dir/*.logs" 2>/dev/null | wc -l)
+  assertTrue "Amount of projects should be 0" "[ $projects -eq 0 ]"
+}
+
 testCreateProjectWithoutMoneyPerHour() {
   createProjectWithoutMoneyPerHour
+  code=$?
   proj_name=$(grep -o 'project_name\ *\=\ *Test' "$dir/def/Test2")
   proj_id=$(grep -o 'project_id\ *\=\ *Test' "$dir/def/Test2")
   target=$(grep -o 'target_hours\ *\=\ *40' "$dir/def/Test2")
@@ -252,12 +289,13 @@ testShowWeeklyLogsEmpty() {
   current_week=$(date +%V)
   current_year=$(date +%Y)
   today=$(date +%A)
-  capture=$(timelog --dev "$dir" show logs ts $current_week)
-  cmd=$(grep -q "Nothing worked on week $current_week year $current_year for project Test" <<< "$capture"; echo $?)
-  assertTrue "When nothing was logged, the output wasn't nothing" "[ $cmd -eq 0 ]"
+  output=$(timelog --dev "$dir" show logs ts $current_week)
+  patt="Nothing worked on week $current_week year $current_year for project Test"
+  assertTrue "When nothing was logged, the output wasn't nothing '$output'" "[ '$output' = '$patt' ]"
 
   deleteProject
 }
+
 
 testMultipleprojects() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
@@ -389,7 +427,5 @@ timelog
 END
   assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
 }
-
-rm -r "$dir/"
 
 . shunit2-2.1.6/src/shunit2
