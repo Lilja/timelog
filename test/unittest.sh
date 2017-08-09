@@ -113,14 +113,14 @@ n
 END
   code=$?
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
-  assertTrue "A log entry was created when specified not to create" "[ $(cat $dir/Test.logs | wc -l) -eq 0 ]"
+  assertTrue "A log entry was created when specified not to create" "[ $(< $dir/Test.logs wc -l) -eq 0 ]"
 
 timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null <<END
 y
 END
   code=$?
   logs=$(cat "$dir/Test.logs")
-  amount_of_logs=$(cat $dir/Test.logs 2>/dev/null | wc -l)
+  amount_of_logs=$(< $dir/Test.logs 2>/dev/null wc -l)
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
   assertTrue "A log entry was not created" "[ $amount_of_logs -eq 1 ]"
 
