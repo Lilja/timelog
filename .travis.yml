@@ -22,7 +22,7 @@ script:
   - docker build -t kcov_img . --build-arg TRAVIS_JOB_ID=$TRAVIS_JOB_ID
   - docker run --name kcov_container kcov_img ls
   - mkdir cov/
-  - docker cp kcov_container2:/tmp/cov cov/
+  - docker cp kcov_container:/tmp/cov cov/
   - cd cov
   - ls -l
   - pwd
