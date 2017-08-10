@@ -386,15 +386,15 @@ function time_to_decimal_time {
   t2m=$4
   t3m=$5
 
-  if  [ "$t1h" -ge 0 ] ||
-      [ "$t1h" -le 23 ] ||
-      [ "$t2h" -ge 0 ] ||
+  if  [ "$t1h" -ge 0 ] &&
+      [ "$t1h" -le 23 ] &&
+      [ "$t2h" -ge 0 ] &&
       [ "$t2h" -le 23 ]
   then
     # Remove leading zeros
-	t1h=${t1h#0}
-	t1m=${t1m#0}
-	t2h=${t2h#0}
+    t1h=${t1h#0}
+    t1m=${t1m#0}
+    t2h=${t2h#0}
     t2m=${t2m#0}
 
     # Minimize stuff
