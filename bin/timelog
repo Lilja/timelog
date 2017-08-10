@@ -864,11 +864,14 @@ elif [ ! -z "$log_time" ]; then
       end_timestamp=$maybeEnd
       parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
     else
-      echo "What end hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835)"
+      echo "What end hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835) Empty for now"
       read end_timestamp
       parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
       (test_timestamp "$parsed_start_timestamp")
-      if [ $? -ne 0 ]; then
+      code=$?
+      if [ -z "$end_timestamp" ]; then
+        parsed_end_timestamp=$(parse_timestamp "$(date +%H%M)")
+      elif [ $code -ne 0 ]; then
         logger_debug "Entered '$end_timestamp' as a end time"
         echo "'$end_timestamp' does not follow the format '$format'"
         exit 1

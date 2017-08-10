@@ -168,6 +168,28 @@ END
   deleteProject
 }
 
+testLogProjectWithNowAtEnd() {
+  now_one_hour_ago=$(date +%H%M -d "$(($(date +%H)-1))$(date +%M)")
+  createProjectTest
+timelog $debug --dev "$dir" log ts >/dev/null <<END
+$now_one_hour_ago
+
+0
+y
+END
+  code=$?
+  logs=$(cat "$dir/Test.logs")
+  amount_of_logs=$(< $dir/Test.logs 2>/dev/null wc -l)
+  assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
+  assertTrue "A log entry was not created" "[ $amount_of_logs -eq 1 ]"
+
+  dec_time=$(echo "$logs" | grep -o '\[1\]' | grep -o '1')
+  mil_time=$(echo "$logs" | grep -o '\{01:00\}' | grep -o '01:00')
+  assertTrue "Decimal time was not 1" "[ $dec_time -eq 1 ]"
+  assertTrue "HH:mm time was not 01:00. $logs" "[ $mil_time = '01:00' ]"
+  deleteProject
+}
+
 testLogProjectWithDate() {
   day="2017-01-01"
   nextDay="2017-01-02"
@@ -295,7 +317,6 @@ testShowWeeklyLogsEmpty() {
 
   deleteProject
 }
-
 
 testMultipleprojects() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
