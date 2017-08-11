@@ -25,6 +25,7 @@ function usage {
   echo " * list project"
   echo " * show logs (project_id) (week) [--raw]"
   echo " * delete project"
+  echo " * start (project_id)"
   echo " * --help"
   echo " * --version"
   echo " * --purge"
