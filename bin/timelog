@@ -143,6 +143,64 @@ function week_stats {
   fi
 }
 
+function save_time_to_disk() {
+  # format timestamp-of-day;time;project_id
+  # $1 = kind of operation, if break or start
+  # $2 = time in 'hhmm' format, like 1220 for 12:20
+  # $3 = YYYY-mm-dd
+  operation="$1"
+  timestamp="$2"
+
+  if [ -z "${operation:+foo}" ]; then
+    echo "Error, no operation supplied"
+    exit 1
+  fi
+  if [ -z "${timestamp:+foo}" ]; then
+    echo "Error, no timestamp supplied"
+    exit 1
+  fi
+  if [ -z "${proj_name:+foo}" ]; then
+    echo "Error, no project supplied"
+    exit 1
+  fi
+
+  if [ -f "$log_path/saved_log_times" ]; then
+    phrase="${proj_name};${operation};${timestamp}"
+    logger_debug "Saving '$phrase' to '$log_path/saved_log_times'"
+    echo "$phrase" >> "$log_path/saved_log_times"
+    exit 0
+  else
+    echo "No such file: saved_log_times"
+    exit 1
+  fi
+}
+
+function read_start_time_for_disk() {
+  # format timestamp-of-day;time;project_id
+  # $1 = kind of operation, if break or start
+  # $2 = time in 'hhmm' format, like 1220 for 12:20
+  # $3 = YYYY-mm-dd
+  operation="$1"
+
+  if [ -z "${proj_name:+foo}" ]; then
+    exit 1
+  fi
+  if [ -z "${operation:+foo}" ]; then
+    exit 1
+  fi
+
+  if [ -f "$log_path/saved_log_times" ]; then
+    timestamp=$(grep "^$proj_name;$operation" "$log_path/saved_log_times" | tail -n1 | tr ';' '\n' | tail -n1)
+    if [ ! -z "$timestamp" ]; then
+      date +%H%M -d "$timestamp"
+    else
+      exit 1
+    fi
+  else
+    exit 1
+  fi
+}
+
 function weekly_stats_days {
   # $1 = Contents of the log file
   # $2 = what week to search for
@@ -257,11 +315,19 @@ function get_project_from_id {
   echo "$all_projects" | grep "\[$1\]" | grep -o ':\ .*\[' | sed 's#^:\ *\(.*\)\[$#\1#' | sed 's/*//;s/ *$//'
 }
 
+function has_illegal_characters {
+  echo "$1" | grep -q '\(;\|\[\|\]\)\+'
+}
+
 
 function create_project {
   echo "Creating a new project"
   echo "What would you like to call it?"
   read -r project_name
+  if has_illegal_characters "$project_name"; then
+    echo "You can't have brackets([]) in the project name"
+    exit 1
+  fi
 
   echo "What is an ID that you would call it?"
   echo "(This is used to specify which project you would like to submit time to)"
@@ -315,10 +381,19 @@ function create_project {
 
 function init_program {
   logger_debug "Initalizing the program. Creating folder and config."
-  mkdir -p "$log_path"; logger_debug "Created '$log_path'";
-  mkdir "$log_path/def/"; logger_debug "Created '$log_path/def'";
-  touch "$log_path/config"
-  echo "default_project=" > "$log_path/config"
+  if [ ! -d "$log_path" ]; then
+    mkdir -p "$log_path"; logger_debug "Created '$log_path'";
+  fi
+  if [ ! -d "$log_path/def" ]; then
+    mkdir "$log_path/def/"; logger_debug "Created '$log_path/def'";
+  fi
+  if [ ! -d "$log_path/saved_log_times" ]; then
+    touch "$log_path/saved_log_times"; logger_debug "Created '$log_path/saved_log_times'";
+  fi
+  if [ ! -f "$log_path/config" ]; then
+    touch "$log_path/config"
+    echo "default_project=" > "$log_path/config"
+  fi
 }
 
 function get_default_project {
@@ -334,7 +409,8 @@ function get_project {
 }
 
 function is_program_inited {
-  if [ -f $log_path/config ] ; then exit 0
+  if [ -f "$log_path/config" ] && [ -d "$log_path/def/" ] && [ -f "$log_path/saved_log_times" ]; then
+    exit 0
   else exit 1
   fi
 }
@@ -683,6 +759,20 @@ while [[ $# -ge 1 ]]; do
       esac
       shift
     ;;
+    start)
+      logger_debug "Start matched"
+      log_start_time="y"
+      specify_project="y"
+      proj_name=$(get_project_from_id "$2")
+      action="log start time for"
+      if [ ! -z "$proj_name" ]; then
+        logger_debug "Project id specified from arguments"
+        specify_project="n"
+        id_matched="y"
+        shift
+      fi
+      shift
+    ;;
     edit)
       case "$2" in
         logs)
@@ -801,6 +891,15 @@ if [ ! -z "$list_projects" ]; then
   fi
   exit 0
 fi
+#############################################################
+# Log start time
+#############################################################
+if [ ! -z "$log_start_time" ]; then
+  logger_debug "About to store date from now to disk"
+  now=$(date +%Y-%m-%d\ %H:%M)
+  save_time_to_disk "start" "$now"
+fi
+
 
 #############################################################
 # Delete project
@@ -843,10 +942,21 @@ elif [ ! -z "$log_time" ]; then
     # See if we need to prompt the user for timestamps
     format="8, 800, 8.00, 8:00, 0800, 08.00, 08:00"
 
+    # Read potential start time
+    read_start_time=$(read_start_time_for_disk "start")
+    if [ $? -ne 0 ]; then
+      logger_debug "read_start_time_for_disk did get anything '$read_start_time'"
+      read_start_time=
+    fi
+
     # Start time
     if [[ ! -z "${maybeStart:+foo}" ]]; then
       logger_debug "'$maybeStart' was a timestamp"
       parsed_start_timestamp=$(parse_timestamp "$maybeStart")
+    elif [ ! -z "${read_start_time:+foo}" ]; then
+      echo "Using start time $read_start_time that is saved from earlier."
+      logger_debug "Using '$read_start_time' as start time"
+      parsed_start_timestamp=$(parse_timestamp "$read_start_time")
     else
       echo "What start hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835)"
       read start_timestamp
