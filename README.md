@@ -42,6 +42,7 @@ Usage: timelog
  - list project
  - show logs (project_id) (week) [year] [--raw]
  - delete project
+ - start (project_id)
  - --help
  - --version
  - --purge
@@ -218,7 +219,6 @@ The program will prompt for input after it has been invoked.
 `--date` Optional. Possible to log for a different date, specify with `--date timestamp` where `timestamp` is something the program `date` can format.
 
 ---
-
 ##### Show logs
 `timelog show logs (project id) (week) (year) | (--raw)`
 
@@ -243,6 +243,15 @@ Debug tool
 First, checks if `xdg-open` is a command. If so, will run it. Otherwise, it will check for `$EDITOR`. If neither are present, fall back to `vim`.
 
 ---
+##### Set start time for log
+`timelog start (project_id)`
+
+`start` is a keyword.
+
+`project id` Optional/prompted. Is an ID that was specified during the creation.
+
+Writes the time down onto the filesystem and is later read when logging.
+
 ##### Delete project
 `timelog delete project`
 
