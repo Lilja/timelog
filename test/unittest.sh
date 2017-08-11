@@ -1,4 +1,5 @@
 #!/bin/bash
+start=$(date +%s)
 
 if [[ $1 = "-v" ]]; then debug="-v"; shift
 else debug=""; fi
@@ -104,6 +105,19 @@ testCreateProjectWithFaultyParams() {
   createProjectWithParams "Test" "test2" "40d"
   code=$?
   assertTrue "Exit code for faulty create project was not 1" "[ $code -eq 1 ]"
+
+  createProjectWithParams "Test ]"
+  code=$?
+  assertTrue "Exit code for faulty create project was not 1 when having a [ in the project name" "[ $code -eq 1 ]"
+
+  createProjectWithParams "Test ["
+  code=$?
+  assertTrue "Exit code for faulty create project was not 1 when having a [ in the project name" "[ $code -eq 1 ]"
+
+  createProjectWithParams "Test ;"
+  code=$?
+  assertTrue "Exit code for faulty create project was not 1 when having a ; in the project name" "[ $code -eq 1 ]"
+
 
   createProjectWithParams "Test" "test2" "40" "40d"
   code=$?
@@ -357,6 +371,27 @@ END
   deleteProject
 }
 
+testLogStart() {
+  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
+
+  now_in_one_hour=$(date +%H%M -d "$(($(date +%H)+1))$(date +%M)")
+  timelog $debug --dev "$dir" start ts1 >/dev/null
+
+timelog $debug --dev "$dir" log ts1>/dev/null << END
+$now_in_one_hour
+0
+y
+END
+
+  logs=$(timelog $debug --dev "$dir" show logs ts1 $(date +%V))
+  remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
+  worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
+  assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
+  assertTrue "Worked hours was not 1" "[ ! -z '$worked_hours' ]"
+
+  deleteProject
+}
+
 testLogWithNote() {
   createProjectTest
   current_week=$(date +%V)
@@ -450,3 +485,8 @@ END
 }
 
 . shunit2-2.1.6/src/shunit2
+end=$(date +%s)
+diff=$((end-start))
+minutes=$((diff/60%60))
+seconds=$((diff%60))
+echo "Unit tests took $minutes min(s), $seconds second(s) to run"
