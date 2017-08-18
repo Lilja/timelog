@@ -27,6 +27,7 @@ function usage {
   echo " * create project"
   echo " * delete project"
   echo " * start (project_id)"
+  echo " * calc start time, end time, break time"
   echo " * --help"
   echo " * --version"
   echo " * --purge"
@@ -741,6 +742,43 @@ while [[ $# -ge 1 ]]; do
     -v)
       logger_debug "Debug is toggled"
       log_level=1
+      shift
+    ;;
+    calc)
+      (test_timestamp "$(parse_timestamp "$2")")
+      if [ $? -ne 0 ]; then
+        echo "$2 is not a valid hour minute"
+        exit 1
+      fi
+      t1h=$(echo "${2:0:2}")
+      t1m=$(echo "${2:2:4}")
+      shift
+
+      (test_timestamp "$(parse_timestamp "$2")")
+      if [ $? -ne 0 ]; then
+        echo "$2 is not a valid hour minute"
+        exit 1
+      fi
+
+      t2h=$(echo "${2:0:2}")
+      t2m=$(echo "${2:2:4}")
+      shift
+
+      if [ ! -z "${2:+foo}" ]; then
+        (test_is_number "$2")
+        if [ $? -eq 0 ]; then
+          break_minutes=$2
+        else
+          echo "$2 i not a number!"
+          exit 1
+        fi
+      else
+        break_minutes=0
+      fi
+      shift
+
+      echo "'$t1h' '$t1m' '$t2h' '$t2m' '$break_minutes'"
+      time_to_decimal_time "$t1h" "$t1m" "$t2h" "$t2m" "$break_minutes"
       shift
     ;;
     list)

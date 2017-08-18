@@ -44,6 +44,7 @@ Usage: timelog
  - create project
  - delete project
  - start (project_id)
+ - calc start time, end time, break time
  - --help
  - --version
  - --purge
@@ -79,6 +80,10 @@ to show logs for a `project id` during `week number` and `year` or specify `--ra
 `timelog delete project`
 
 to delete a project(interactively)
+
+`timelog calc start time end time [break time]`
+
+to calculate a period between start time, end time and break time
 
 `timelog --purge`
 
@@ -259,6 +264,18 @@ Writes the time down onto the filesystem and is later read when logging.
 `delete project` is keywords.
 
 The program will prompt for which project to delete.
+
+---
+##### Calculate time duration
+`timelog calc start time end time [break time]`
+
+`calc` is a keyword.
+
+`start time` Required. Is a timestamp to begin logging time from. `8, 8:00, 800, 08:00, 0800` is all valid and mean the same thing.
+
+`end time` Required. Is a timestamp to begin logging time from. `8, 8:00, 800, 08:00, 0800` is all valid and mean the same thing.
+
+`break time` Optional. Is the total amount of minutes to deduct from the calculation. Enter `0` for no breaks.
 
 ---
 ##### Purge project
