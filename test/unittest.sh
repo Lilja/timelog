@@ -513,6 +513,18 @@ testCalculate() {
   assertTrue "Calculating 0800 1200 with implicit break time 0 did not return '$regex'" "[ $code -eq 0 ]"
 }
 
+testMoneyPerHourCalculation() {
+  createProjectTest
+  timelog $debug --dev "$dir" log 0800 1000 0 >/dev/null <<END
+y
+END
+  calc="280" # 140 per hour pre tax and 2 hours logged => 240
+
+  cmd=$(timelog $debug --dev "$dir" show logs "$(date +%V)" | grep "You have earned $calc")
+  assertTrue "Calculating total money per hour for 2 hours on 140 mph did not retrieve string 'You have earned $calc'" "[ ! -z '$cmd' ]"
+  deleteProject
+}
+
 testCalculateInvalidTimes() {
   timelog $debug --dev "$dir" calc 080a0 1200 0 &>/dev/null
   code=$?
