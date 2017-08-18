@@ -32,21 +32,9 @@ function usage {
   echo " * --purge"
   echo ""
   echo "For debugging, run with -v"
-  echo "To see examples, run $(basename $0) --examples"
   echo "All arguments in parenthesis will be prompted to the user if not supplied"
   echo "All arguments in brackets are optional."
   [ $1 -eq 1 ] && exit 1 || exit 0
-}
-
-function examples {
-  bin=$(basename $0)
-  echo "$bin create project"
-  echo "... follow the prompt text"
-  echo "$bin log project test 08:30 14:00 30"
-  echo "Save this? y/n y"
-  echo "$bin list projects"
-  echo "1. Test[ts]"
-  exit 0
 }
 
 function list_projects {
@@ -84,7 +72,9 @@ function week_stats {
   logger_debug "project name: '$proj_name'"
   logger_debug "Week: '$week'"
   logger_debug "Year: '$year'"
-  records=$(echo "$file_contents" | grep "$year-$week-[1-7]*\/")
+
+  # Grep -0* because date's week 3 gives you 03. 03 is saved to disk but user doesn't need to know about that.
+  records=$(echo "$file_contents" | grep "$year-0*$week-[1-7]*\/")
   day=$(echo "$records" | grep -o "\/$year-[0-9]\+-[0-9]\+" | sed 's#^\/##')
   if [ -z $target_hours ]; then { echo "Target hours not specified." ; exit 1 ; } fi
 
@@ -92,7 +82,7 @@ function week_stats {
   dec_time_for_day=0
   # Calculate how much time has been spent on a week
   if [ ! -z "$records" ]; then
-    echo "Days worked for week $week"
+    echo "Days worked for week $week $year"
     while read -r record; do
       day=$(echo "$record" | grep -o "\/$year-[0-9]\+-[0-9]\+" | sed 's#^\/##')
       dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | grep -o '[0-9]*\.*[0-9]*')
@@ -401,18 +391,6 @@ function init_program {
   fi
 }
 
-function get_default_project {
-  cat "$log_path/config" | grep -o 'default_project\ *\=\ *.*' | cut -d '=' -f 2- | awk '{$1=$1};1'
-}
-
-function get_project {
-  default=$(get_default_project)
-  # $1 = project, if $1 = empty then $default. If $1 != default then default. else $1
-  if [ -z "$1" ]; then echo $default;
-  elif [ "$1" != "$default" ]; then echo $1;
-  else echo $default ; fi;
-}
-
 function is_program_inited {
   if [ -f "$log_path/config" ] && [ -d "$log_path/def/" ] && [ -f "$log_path/saved_log_times" ]; then
     exit 0
@@ -619,7 +597,7 @@ while [[ $# -ge 1 ]]; do
         ;;
         *)
           echo "Could not comprehend '$2' with create keyword"
-          shift
+          exit 1
         ;;
       esac
     ;;
@@ -654,7 +632,7 @@ while [[ $# -ge 1 ]]; do
         ;;
         *)
           echo "Could not comprehend '$2' with show keyword"
-          shift
+          exit 1
         ;;
       esac
     ;;
@@ -667,7 +645,7 @@ while [[ $# -ge 1 ]]; do
         ;;
         *)
           echo "Could not comprehend '$2' with delete keyword"
-          shift
+          exit 1
         ;;
       esac
     ;;
@@ -796,7 +774,7 @@ while [[ $# -ge 1 ]]; do
         ;;
         *)
           echo "Could not comprehend '$2' with list keyword"
-          shift
+          exit 1
         ;;
       esac
       shift
@@ -831,16 +809,14 @@ while [[ $# -ge 1 ]]; do
         ;;
         *)
           echo "Could not comprehend '$2' with edit keyword"
-          shift
+          exit 1
         ;;
       esac
       shift
     ;;
     --version)
-      echo "$(basename 0) $version"
-    ;;
-    --examples)
-      examples
+      echo "$(basename $0) $VERSION"
+      exit 0
     ;;
     *)
       logger_debug "About to call usage '$1'"
@@ -930,6 +906,7 @@ if [ ! -z "$list_projects" ]; then
     echo "$all_projects"
   else
     echo "No projects! Create one with 'create project' keywords"
+    exit 1
   fi
   exit 0
 fi
