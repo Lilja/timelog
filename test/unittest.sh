@@ -60,6 +60,12 @@ testWhenEmptyProjectInitally() {
   if [ ! -z "$output" ]; then exit 1; fi
 }
 
+testVersion() {
+  output=$(timelog $debug --dev "$dir" --version | grep -o '[0-9]\.[0-9]\.[0-9]')
+  assertTrue " --version did not supply any \d.\d.\d format" "[ ! -z '$output' ]"
+}
+
+
 testCreateAndDeleteProject() {
   createProjectTest
   code=$?
@@ -157,6 +163,12 @@ testListProjects() {
   deleteProject
 }
 
+testListProjectsWithNoCreatedProjects() {
+  timelog $debug --dev "$dir" list projects &>/dev/null
+  code=$?
+  assertTrue "Listing projects with no created project did not return an exit code of 1" "[ $code -eq 1 ]"
+}
+
 testLogProject() {
   createProjectTest
 timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null <<END
@@ -179,6 +191,35 @@ END
   mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
   assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
   assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
+  deleteProject
+}
+
+testLogProjectWithFaultyTimestamps() {
+  createProjectTest
+timelog $debug --dev "$dir" log ts >/dev/null <<END
+asdf
+END
+  code=$?
+  assertTrue "Exit code was not 1" "[ $code -eq 1 ]"
+  assertTrue "Even though log createn went south, something was created in the log file" "[ $( wc -l < $dir/Test.logs) -eq 0 ]"
+
+timelog $debug --dev "$dir" log ts >/dev/null <<END
+0800
+asdf
+END
+  code=$?
+  assertTrue "Exit code was not 1" "[ $code -eq 1 ]"
+  assertTrue "Even though log createn went south, something was created in the log file" "[ $( wc -l < $dir/Test.logs) -eq 0 ]"
+
+timelog $debug --dev "$dir" log ts >/dev/null <<END
+0800
+1000
+asdf
+END
+  code=$?
+  assertTrue "Exit code was not 1" "[ $code -eq 1 ]"
+  assertTrue "Even though log createn went south, something was created in the log file" "[ $( wc -l < $dir/Test.logs) -eq 0 ]"
+
   deleteProject
 }
 
@@ -256,9 +297,10 @@ END
   deleteProject
 }
 
+
 testLogProjectWithFaultyDate() {
   createProjectTest
-timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null --date "20asdwdawdqw" <<END
+timelog $debug --dev "$dir" log ts 0800 1000 0 --date "20asdwdawdqw" >/dev/null <<END
 END
   code=$?
   assertTrue "Exit code was 0" "[ $code -ne 0 ]"
@@ -273,7 +315,7 @@ testLogWeekFirstOfJan() {
   day="2017-01-01"
   year_week_day_of_date="2016-52-7"
   createProjectTest
-timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null --date "$day" <<END
+timelog $debug --dev "$dir" log ts 0800 1000 0 --date  >/dev/null "$day" <<END
 y
 END
   code=$?
@@ -283,6 +325,26 @@ END
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
   assertTrue "A log entry was not created when specifying custom date" "[ $( wc -l < $dir/Test.logs) -eq 1 ]"
   assertTrue "Custom date was not $day" "[ '$mixed_date' = '$year_week_day_of_date/$day' ]"
+
+  deleteProject
+}
+
+testLogProjectAtDifferentYears() {
+  createProjectTest
+  # All of these dates has week=3
+
+  timelog $debug --dev "$dir" log ts 0800 1000 0 --date "2015-01-12" &>/dev/null <<END
+y
+END
+  timelog $debug --dev "$dir" log ts 0800 1000 0 --date "2016-01-18" &>/dev/null <<END
+y
+END
+  timelog $debug --dev "$dir" log ts 0800 1000 0 --date "2017-01-16" &>/dev/null <<END
+y
+END
+
+  output=$(timelog $debug --dev "$dir" show logs ts 3 2017 | grep -o '2h')
+  assertTrue "Creating logs over different years with the same week gives not output when specified which year from CLI" "[ ! -z $output ]"
 
   deleteProject
 }
@@ -317,6 +379,15 @@ END
   cmd=$(grep -q "$today: 8\.8h \/ 08:48" <<< $capture ; echo $?)
   assertTrue "Today($today)'s decimal time and/or military time was not equal to 8.8h/08:48" "[ $cmd -eq 0 ]"
 
+  (
+  timelog --dev "$dir" show logs ts <<END
+$current_week
+END
+  ) | grep -q "Days worked for week $current_week"
+  code=$?
+
+  assertTrue "Supplying show logs with current week through prompt did not display any text" "[ $code -eq 0 ]"
+
   deleteProject
 }
 
@@ -332,7 +403,7 @@ testShowWeeklyLogsEmpty() {
   deleteProject
 }
 
-testShowWeeklyLogs() {
+testShowWeeklyLogsWithOvertime() {
   createProjectTest
   mon="2017-08-14"
   tue="2017-08-15"
@@ -539,9 +610,30 @@ testCalculateInvalidTimes() {
   assertTrue "Calculating 0800 1200 2b returned an exit code of $code" "[ $code -eq 1 ]"
 }
 
-testUnknownArgument() {
-  cmd=$(timelog asdf | grep "Unknown argument 'asdf'")
+testUnknownArguments() {
+  cmd=$(timelog $debug --dev $dir asdf | grep "Unknown argument 'asdf'")
   assertTrue "Faulty command did not match the string 'Unknown argument'" "[ ! -z '$cmd' ]"
+
+  timelog $debug --dev "$dir" list asdasdj &>/dev/null
+  code=$?
+  assertTrue "Faulty command 'list asdasdj' did not return 1'" "[ $code -eq 1 ]"
+
+  timelog $debug --dev "$dir" show asdf &>/dev/null
+  code=$?
+  assertTrue "Faulty command 'show asdf' did not return 1" "[ $code -eq 1 ]"
+
+  timelog $debug --dev "$dir" create asdf &>/dev/null
+  code=$?
+  assertTrue "Faulty command 'create asdf' did not return 1" "[ $code -eq 1 ]"
+
+  timelog $debug --dev "$dir" delete asdf &>/dev/null
+  code=$?
+  assertTrue "Faulty command 'delete asdf' did not return 1" "[ $code -eq 1 ]"
+}
+
+testUsage() {
+  timelog $debug --dev "$dir" --help &>/dev/null
+  assertTrue "Calling --help did not return an exit code of 1" "[ $code -eq 1 ]"
 }
 
 testPurge() {
@@ -564,6 +656,15 @@ END
   deleteProject
 }
 
+testDebugMode() {
+  createProjectTest
+  output=$(timelog -v --dev "$dir" --help | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\} DEBUG')
+  code=$?
+  assertTrue "Debug information was not shown when supplying -v" "[ $code -eq 0 ]"
+  deleteProject
+}
+
+
 testPurge() {
   createProjectTest
   logProjectTest
@@ -572,6 +673,7 @@ timelog
 END
   assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
 }
+
 
 . shunit2-2.1.6/src/shunit2
 end=$(date +%s)
