@@ -332,6 +332,38 @@ testShowWeeklyLogsEmpty() {
   deleteProject
 }
 
+testShowWeeklyLogs() {
+  createProjectTest
+  mon="2017-08-14"
+  tue="2017-08-15"
+  wed="2017-08-16"
+  thu="2017-08-17"
+  fri="2017-08-18"
+  week="33"
+timelog $debug --dev "$dir" log ts 0800 1600 0 --date "$mon" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1600 0 --date "$tue" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1600 0 --date "$wed" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1600 0 --date "$thu" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1700 0 --date "$fri" >/dev/null << END
+y
+END
+  # Overtime by 1 hour logged(friday). Should mention that the user has worked overtime in show logs
+  stdout=$(timelog $debug --dev "$dir" show logs ts "$week")
+
+  cmd=$(grep -q "[oO]vertime" <<< $stdout ; echo $?)
+  assertTrue "Overtime of 1 hour was not mentioned" "[ $cmd -eq 0 ]"
+
+  deleteProject
+}
+
 testMultipleprojects() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
   createProjectWithParams "Test2" "ts2" "40" "240" "kr"
@@ -495,7 +527,7 @@ testCalculateInvalidTimes() {
   assertTrue "Calculating 0800 1200 2b returned an exit code of $code" "[ $code -eq 1 ]"
 }
 
-testUnknownArgumemt() {
+testUnknownArgument() {
   cmd=$(timelog asdf | grep "Unknown argument 'asdf'")
   assertTrue "Faulty command did not match the string 'Unknown argument'" "[ ! -z '$cmd' ]"
 }
