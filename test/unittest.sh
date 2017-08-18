@@ -183,7 +183,7 @@ END
 }
 
 testLogProjectWithNowAtEnd() {
-  now_one_hour_ago=$(date +%H%M -d "$(($(date +%H)-1))$(date +%M)")
+  now_one_hour_ago=$(date +%H%M -d "$(($(date +%k)-1))$(date +%M)") # %k beacuse %H sometimes prepend 0, can't do this math expr then `$((08-07))`
   createProjectTest
 timelog $debug --dev "$dir" log ts >/dev/null <<END
 $now_one_hour_ago
@@ -374,7 +374,7 @@ END
 testLogStart() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
 
-  now_in_one_hour=$(date +%H%M -d "$(($(date +%H)+1))$(date +%M)")
+  now_in_one_hour=$(date +%H%M -d "$(($(date +%k)+1))$(date +%M)")
   timelog $debug --dev "$dir" start ts1 >/dev/null
 
 timelog $debug --dev "$dir" log ts1>/dev/null << END
@@ -468,6 +468,31 @@ END
   done
 
   deleteProject
+}
+
+testCalculate() {
+  regex="4/04:00"
+  timelog $debug --dev "$dir" calc 0800 1200 0 | grep -q "$regex"
+  code=$?
+  assertTrue "Calculating 0800 1200 0 did not return '$regex'" "[ $code -eq 0 ]"
+
+  timelog $debug --dev "$dir" calc 0800 1200 | grep -q "$regex"
+  code=$?
+  assertTrue "Calculating 0800 1200 with implicit break time 0 did not return '$regex'" "[ $code -eq 0 ]"
+}
+
+testCalculateInvalidTimes() {
+  timelog $debug --dev "$dir" calc 080a0 1200 0 &>/dev/null
+  code=$?
+  assertTrue "Calculating 080a0 1200 0 returned an exit code of $code" "[ $code -eq 1 ]"
+
+  timelog $debug --dev "$dir" calc 0800 12b00 &>/dev/null
+  code=$?
+  assertTrue "Calculating 0800 12b00 returned an exit code of $code" "[ $code -eq 1 ]"
+
+  timelog $debug --dev "$dir" calc 0800 1200 2b &>/dev/null
+  code=$?
+  assertTrue "Calculating 0800 1200 2b returned an exit code of $code" "[ $code -eq 1 ]"
 }
 
 testUnknownArgumemt() {
