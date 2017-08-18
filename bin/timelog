@@ -112,8 +112,11 @@ function week_stats {
     remaining=$(awk "BEGIN {print ($target_hours-$dec_time)}")
     days_in_a_work_week=5
 
-    # Check if there is an remaining number of hours compoared to the total_hours. If so, give an estimate.
-    if [ $(echo "$remaining" | awk '($1 < 0){ exit 1 }' ; echo $?) ]; then
+    # Check if there is an remaining number of hours compared to the target_hours. If so, give an estimate.
+    logger_debug "Checking if '$dec_time' > $target_hours"
+
+    if [ $(echo "$dec_time $target_hours" | awk '{ exit ($1 > $2) }' ; echo $?) -eq 0 ]; then
+      logger_debug "'$target_hours hours has not been fulfilled, '$dec_time' hours actual"
       days=$(($days_in_a_work_week-$amount_of_days_worked))
       logger_debug "Worked for $amount_of_days_worked days. Amount of remaining days(Assuming $days_in_a_work_week-day work week):$days"
 
@@ -134,7 +137,7 @@ function week_stats {
     else
       echo "All hours caught up!"
       overtime=$(awk "BEGIN { print($dec_time-$target_hours) }")
-      echo "You have overtime of $overtime hours"
+      echo "You have overtime of $overtime hour(s)"
     fi
     if [ ! -z "$money" ]; then
       echo "You have earned $(awk "BEGIN {print ($dec_time*$money)}") $currency pre-tax!"
