@@ -509,6 +509,26 @@ END
   assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
 }
 
+testShowLogsWithoutMoneyPerHour() {
+  createProjectWithoutMoneyPerHour
+  timelog $debug --dev "$dir" log 0800 1200 40 >/dev/null << END
+y
+END
+  stdout=$(timelog $debug --dev "$dir" show logs "$(date +%V)" | grep "[Yy]ou have earned")
+  assertTrue "Even when specifying no money per hour, 'You have earned' text is displayed" "[ -z '$stdout' ]"
+
+  deleteProject
+}
+
+testPurge() {
+  createProjectTest
+  logProjectTest
+timelog $debug --dev "$dir" --purge >/dev/null << END
+timelog
+END
+  assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
+}
+
 . shunit2-2.1.6/src/shunit2
 end=$(date +%s)
 diff=$((end-start))
