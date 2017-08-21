@@ -24,6 +24,7 @@ function usage {
   echo " * log (project_id) (start time, end time, break time) [--note] [--date timestamp]"
   echo " * list project"
   echo " * show logs (project_id) (week) [--raw]"
+  echo " * create project"
   echo " * delete project"
   echo " * start (project_id)"
   echo " * --help"
