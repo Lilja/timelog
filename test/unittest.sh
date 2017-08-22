@@ -618,10 +618,15 @@ testCalculate() {
   code=$?
   assertTrue "Calculating 0800 1200 with implicit break time 0 did not return '$regex'" "[ $code -eq 0 ]"
 
+  timelog $debug --dev "$dir" calc 0800 1220 20 | grep -q "$regex"
+  code=$?
+  assertTrue "Calculating 0800 1220 20(two hours break) did not return '$regex'" "[ $code -eq 0 ]"
+
   two_hours_regex="2/02:00"
   timelog $debug --dev "$dir" calc 0800 1200 120 | grep -q "$two_hours_regex"
   code=$?
   assertTrue "Calculating 0800 1200 120(two hours break) did not return '$two_hours_regex'" "[ $code -eq 0 ]"
+
 }
 
 testCalculateInvalidTimes() {
@@ -636,6 +641,10 @@ testCalculateInvalidTimes() {
   timelog $debug --dev "$dir" calc 0800 1200 2b &>/dev/null
   code=$?
   assertTrue "Calculating 0800 1200 2b returned an exit code of $code" "[ $code -eq 1 ]"
+
+  timelog $debug --dev "$dir" calc 0800 1200 300 | grep -q 'Error, break time is greater than'
+  code=$?
+  assertTrue "Calculating 0800 1200 300 returned a string that did not match" "[ $code -eq 0 ]"
 }
 
 testMoneyPerHourCalculation() {

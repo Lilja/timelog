@@ -284,15 +284,11 @@ function delete_project {
       logger_debug "Sending $proj as param info to project info"
       proj=$(get_project_from_all_projects $proj)
       logger_debug "Matched '$proj'"
-      if [ -f "$log_path/def/$proj" ]; then
-        rm "$log_path/$proj.logs"
-        rm "$log_path/def/$proj"
-        logger_debug "Deleting logs '$proj_name.logs'"
-        logger_debug "Deleting definition 'def/$proj_name'"
-        all_projects=$(list_projects)
-      else
-        echo "No such project file: '$log_path/def/$proj'"
-      fi
+      rm "$log_path/$proj.logs"
+      rm "$log_path/def/$proj"
+      logger_debug "Deleting logs '$proj_name.logs'"
+      logger_debug "Deleting definition 'def/$proj_name'"
+      all_projects=$(list_projects)
     fi
   else
     echo "No projects, can't delete nothing that doesn't exist!"
@@ -444,7 +440,7 @@ function time_to_decimal_time {
   t1m=$2
   t2h=$3
   t2m=$4
-  t3m=$5
+  t3m=${5:=0}
 
   if  [ "$t1h" -ge 0 ] &&
       [ "$t1h" -le 23 ] &&
@@ -465,7 +461,7 @@ function time_to_decimal_time {
 
     if [ "$t1m" -gt "$t2m" ]  # 0830, 1600.
     then
-        # t2's minute is lesser. Add 60 to it and subtract t2h by one.
+        # t2's minute is lesser than t1's. Add 60 to it and subtract t2h by one.
         # 0725 & 1210 => 0725 & 1170 => ((11-07) => 04, (70-25) => 45)
         t2h=$((t2h-=1))
         t2m=$((t2m+60))
@@ -478,20 +474,24 @@ function time_to_decimal_time {
     # t1h, t1m not relevant any more.
     unset t1h ; unset t1m
 
-    # Fix third argument
-    if [ ! -z "$t3m" ] && [ "$t3m" -gt 0 ] # is not empty or negative
-    then
-        # Wrap it up with an if-statement checking if t3m/60 is larger than t2h. If so, break is larger than end time.
-        tbh=$((t3m/60))
+    # If break is supplied, we need to subtract it by what value it is.
+    # If it's 0, we obviously do not need to do anything.
+    if [ "$t3m" -gt 0 ]; then
+        # Calculate the total amount of minutes so we can compare break time with it
         total_min=$((t2h*60+(t2m)))
 
-        if [ "$t3m" -lt "$total_min" ] # is it even a valid procedure?
-        then
-            if [ "$t2m" -gt "$t3m" ] # if there is room to just subtract. (h1=0445; h2=45;h2-h1)=>0400
-            then
+        # if t3m is lesser than total minutes we have an error
+        if [ "$t3m" -lt "$total_min" ]; then
+            # if there is room to just subtract. (end_time=04:45; break time= 45; h2=45; h2-h1) => 0400
+            if [ "$t2m" -ge "$t3m" ]; then
+                # t2m greater, which means that there is enough room in t2m to just subtract by t3m to be able
+                # to get a decimal value
                 t2m=$((t2m-t3m))
             else
-                # Since t2m is lower than t3m, borrow hours from t2h and then subtract
+                # t3m is greater than t2m, this means that we have to "borrow" one or more hour from t2h, example:
+                # end time=04 45, break time=50
+                # end time`=03 105 ; borrow one hour from t1h so we're able to subtract with `break_time`
+                # end time``=(end time`-break time) = 03 (105-50) => 03 55
                 temp=$(echo "$t3m")
                 while [ "$t3m" -gt "$t2m" ]
                 do
@@ -500,12 +500,16 @@ function time_to_decimal_time {
                 done
                 t2m=$((t2m-temp))
             fi # t3m -lt total_min
+        else
+          # Throw error because break time is greater than the interval (t1h:t1m-t2h:t2m)
+          echo "Error, break time is greater than all of worked time."
+          exit 1
         fi # t3m -lt total_min
     fi # ! -z t3m && t3m -gt 0
 
     # 10# because it might contain leading 0's
-    # total_minutes = ((4*60) => 240, (45) => 45) => 295
-    # total_minutes=$((10#$t2h*60 + 10#$t2m))
+    # total_minutes= ((4*60) => 240, (45) => 45) => 295
+    # total_minutes= $((10#$t2h*60 + 10#$t2m))
 
     dectime=$(awk "BEGIN {print ($t2h+($t2m/60))}")
     # append 0 so 4:9 => 04:09.
@@ -514,8 +518,6 @@ function time_to_decimal_time {
     echo "$dectime/$t2h:$t2m"
     exit 0
   fi
-  logger_debug "Could not compute: $t1h $t1m $t2h $t2m $t3m"
-  exit 1
 }
 
 function calculate_time_with_parameters {
@@ -764,7 +766,6 @@ while [[ $# -ge 1 ]]; do
 
       echo "Times: ${t1h}${t1m} ${t2h}${t2m} $break_minutes"
       time_to_decimal_time "$t1h" "$t1m" "$t2h" "$t2m" "$break_minutes"
-      shift
     ;;
     list)
       case "$2" in
@@ -827,7 +828,6 @@ while [[ $# -ge 1 ]]; do
       logger_debug "About to call usage '$1'"
       echo "Unknown argument '$1'"
       usage 1
-      shift
     ;;
   esac
 done
