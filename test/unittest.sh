@@ -369,7 +369,7 @@ END
 testShowWeeklyLogs() {
   createProjectTest
   current_week=$(date +%V)
-  today=$(date +%A | grep 's/^\(.\)/\U\1/')
+  today=$(date +%A | sed 's/^\(.\)/\U\1/')
 timelog $debug --dev "$dir" log ts 0840 1802 34 >/dev/null << END
 y
 END
