@@ -300,6 +300,7 @@ function delete_project {
     fi
   else
     echo "No projects, can't delete nothing that doesn't exist!"
+    exit 1
   fi
 }
 
@@ -372,6 +373,7 @@ function create_project {
   else
     echo "Could not create project, it already exists!"
     logger_debug "Could not create $project_name since $log_path/def/$project_name does exists"
+    exit 1
   fi
 }
 
@@ -591,7 +593,7 @@ while [[ $# -ge 1 ]]; do
     create)
       case "$2" in
         project)
-          logger_debug "About to describe project project"
+          logger_debug "About to create project"
           new_project="y"
           specify_project="n"
           shift ; shift
