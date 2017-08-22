@@ -369,7 +369,7 @@ END
 testShowWeeklyLogs() {
   createProjectTest
   current_week=$(date +%V)
-  today=$(date +%A)
+  today=$(date +%A | grep 's/^\(.\)/\U\1/')
 timelog $debug --dev "$dir" log ts 0840 1802 34 >/dev/null << END
 y
 END
@@ -698,13 +698,13 @@ END
   deleteProject
 }
 
-testPurge() {
-  createProjectTest
-  logProjectTest
-timelog $debug --dev "$dir" --purge >/dev/null << END
-timelog
-END
-  assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
+testLoggingWithNoProject() {
+  output=$(timelog $debug --dev "$dir" log)
+  output_code=$?
+  echo "$output" | grep -q 'requires you to specify a project'
+  code=$?
+  assertTrue "Attempting to log a project without any projects did not return 1: $output_code" "[ $output_code -eq 1 ]"
+  assertTrue "Attempting to log a project without any projects did not return the expected output string" "[ $code -eq 0 ]"
 }
 
 testShowLogsWithoutMoneyPerHour() {

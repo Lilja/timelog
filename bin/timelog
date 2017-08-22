@@ -270,10 +270,6 @@ function test_is_number {
   if [ ! -z "$k" ] && [ "$k" == "$1" ]; then exit 0 ; else exit 1; fi
 }
 
-function does_project_exist {
-  if [ -f "$log_path/def/$1" ]; then exit 0; else exit 1; fi
-}
-
 function delete_project {
   if [ ! -z "$all_projects" ]; then
     echo "The projects"
@@ -288,15 +284,15 @@ function delete_project {
       logger_debug "Sending $proj as param info to project info"
       proj=$(get_project_from_all_projects $proj)
       logger_debug "Matched '$proj'"
-      [ -f "$log_path/def/$proj" ] && {
-        rm "$log_path/$proj.logs" ;
-        rm "$log_path/def/$proj" ;
-        logger_debug "Deleting logs '$proj_name.logs'" ;
-        logger_debug "Deleting definition 'def/$proj_name'" ;
-        all_projects=$(list_projects) ;
-      } || {
-        echo "No such project file: '$log_path/def/$proj'" ;
-      }
+      if [ -f "$log_path/def/$proj" ]; then
+        rm "$log_path/$proj.logs"
+        rm "$log_path/def/$proj"
+        logger_debug "Deleting logs '$proj_name.logs'"
+        logger_debug "Deleting definition 'def/$proj_name'"
+        all_projects=$(list_projects)
+      else
+        echo "No such project file: '$log_path/def/$proj'"
+      fi
     fi
   else
     echo "No projects, can't delete nothing that doesn't exist!"
@@ -423,8 +419,10 @@ function write_to_disk {
   week_date=$(date +%G-%V-%u -d "$log_date_input")
   proj_log_path=$(get_log_path_for_project $project)
   entry="$week_date/$log_date [$dec_time]{$mil_time} ($start_time $end_time $break_min) [$note_text]"
-  echo "$entry" >> $proj_log_path
+  echo "$entry" >> "$proj_log_path"
+  code=$?
   logger_debug "Writing log entry $entry to $proj_log_path"
+  [ $code -eq 0 ] && echo "Successfully saved log!" || echo "Failed to save log."
 }
 
 function get_log_path_for_project {
@@ -575,7 +573,9 @@ function calculate_time_with_parameters {
   echo "Save this to $proj_name project log? y/n"
   read confirm
   logger_debug "Confirm: '$confirm'"
-  [ "$confirm" = "y" ] && write_to_disk $project $dec_time $mil_time "$1" "$2" "$3" "$log_date" "$note_text"
+  if [ "$confirm" = "y" ]; then 
+    write_to_disk $project $dec_time $mil_time "$1" "$2" "$3" "$log_date" "$note_text"
+  fi
 }
 
 # If empty arguments, call usage
@@ -889,7 +889,7 @@ if [ "$specify_project" != "n" ]; then
     fi
   else
     echo "This action requires you to specify a project but there is no created projects. Create a project with 'create project' keywords"
-    exit 0
+    exit 1
   fi
 fi
 
