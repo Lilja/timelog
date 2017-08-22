@@ -41,6 +41,7 @@ Usage: timelog
  - log (project_id) (start time) (end time) (break time) [--note] [--date timestamp]
  - list project
  - show logs (project_id) (week) [year] [--raw]
+ - create project
  - delete project
  - start (project_id)
  - --help
