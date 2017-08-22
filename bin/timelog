@@ -751,7 +751,7 @@ while [[ $# -ge 1 ]]; do
         if [ $? -eq 0 ]; then
           break_minutes=$2
         else
-          echo "$2 i not a number!"
+          echo "$2 is not a number!"
           exit 1
         fi
       else
@@ -759,9 +759,8 @@ while [[ $# -ge 1 ]]; do
       fi
       shift
 
-      echo "'$t1h' '$t1m' '$t2h' '$t2m' '$break_minutes'"
+      echo "Times: ${t1h}${t1m} ${t2h}${t2m} $break_minutes"
       time_to_decimal_time "$t1h" "$t1m" "$t2h" "$t2m" "$break_minutes"
-      shift
     ;;
     list)
       case "$2" in
@@ -932,105 +931,100 @@ if [ ! -z "$delete_project" ]; then
 # Show logs
 #############################################################
 elif [ ! -z "$show_logs" ]; then
-  if [ ! -z "$all_projects" ]; then
-    if [ -z "$raw_logs" ]; then
-      if [ -z "$show_logs_week" ]; then
-        echo "For what week? Current week is $(date +%V)"
-        read week
-        show_logs_week=$week
-      fi
-      logger_debug "project: $proj_name"
+  if [ -z "$raw_logs" ]; then
+    if [ -z "$show_logs_week" ]; then
+      echo "For what week? Current week is $(date +%V)"
+      read week
+      show_logs_week=$week
+    fi
+    logger_debug "project: $proj_name"
 
-      if [ ! -z "$proj_name" ]; then
-        get_project_meta_info $proj_name
-        logger_debug "Showing logs for $proj_name given week $show_logs_week"
-        if [ -z "$year" ]; then year=$(date +%Y); fi
-        week_stats "$(cat "$log_path/$proj_name.logs")" "$show_logs_week" "$year"
-      fi
-    else
-      logger_debug "About to start less with $log_path/${proj_name}.logs as argument"
-      less "$log_path/${proj_name}.logs"
+    if [ ! -z "$proj_name" ]; then
+      get_project_meta_info $proj_name
+      logger_debug "Showing logs for $proj_name given week $show_logs_week"
+      if [ -z "$year" ]; then year=$(date +%Y); fi
+      week_stats "$(cat "$log_path/$proj_name.logs")" "$show_logs_week" "$year"
     fi
   else
-    echo "Can't show logs if no projects exists"
+    logger_debug "About to start less with $log_path/${proj_name}.logs as argument"
+    less "$log_path/${proj_name}.logs"
   fi
 #############################################################
 # Log time
 #############################################################
 elif [ ! -z "$log_time" ]; then
   logger_debug "About to log time"
-  if [ ! -z "$proj_name" ]; then
-    # See if we need to prompt the user for timestamps
-    format="8, 800, 8.00, 8:00, 0800, 08.00, 08:00"
+  # See if we need to prompt the user for timestamps
+  format="8, 800, 8.00, 8:00, 0800, 08.00, 08:00"
 
-    # Read potential start time
-    read_start_time=$(read_start_time_for_disk "start")
-    if [ $? -ne 0 ]; then
-      logger_debug "read_start_time_for_disk did get anything '$read_start_time'"
-      read_start_time=
-    fi
-
-    # Start time
-    if [[ ! -z "${maybeStart:+foo}" ]]; then
-      logger_debug "'$maybeStart' was a timestamp"
-      parsed_start_timestamp=$(parse_timestamp "$maybeStart")
-    elif [ ! -z "${read_start_time:+foo}" ]; then
-      echo "Using start time $read_start_time that is saved from earlier."
-      logger_debug "Using '$read_start_time' as start time"
-      parsed_start_timestamp=$(parse_timestamp "$read_start_time")
-    else
-      echo "What start hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835)"
-      read start_timestamp
-      parsed_start_timestamp="$(parse_timestamp "$start_timestamp")"
-      (test_timestamp "$parsed_start_timestamp")
-      if [ $? -ne 0 ]; then
-        logger_debug "Entered '$start_timestamp' as a start time"
-        echo "'$start_timestamp' does not follow the format '$format'"
-        exit 1
-      fi
-    fi
-
-    if [[ ! -z "${maybeEnd:+foo}" ]]; then
-      logger_debug "'$maybeEnd' was a timestamp"
-      end_timestamp=$maybeEnd
-      parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
-    else
-      echo "What end hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835) Empty for now"
-      read end_timestamp
-      parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
-      (test_timestamp "$parsed_start_timestamp")
-      code=$?
-      if [ -z "$end_timestamp" ]; then
-        parsed_end_timestamp=$(parse_timestamp "$(date +%H%M)")
-      elif [ $code -ne 0 ]; then
-        logger_debug "Entered '$end_timestamp' as a end time"
-        echo "'$end_timestamp' does not follow the format '$format'"
-        exit 1
-      fi
-    fi
-
-    if [[ ! -z "${maybeBreak:+foo}" ]]; then
-      logger_debug "'$maybeBreak' was a valid number"
-      break_time=$maybeBreak
-    else
-      echo "How large of a break(in minutes)?"
-      read break_time
-      (test_is_number "$break_time")
-      if [ $? -ne 0 ]; then
-        echo "'$break_time' is not a number!"; exit 1;
-      fi
-    fi
-
-    if [[ -z "${note:+foo}" ]]; then
-      note=""
-    fi
-
-    logger_debug "Assumed inputs: Start:$maybeStart End:$maybeEnd Break:$maybeBreak"
-    logger_debug "Parsed: Start:$parsed_start_timestamp End:$parsed_end_timestamp Break:$break_time"
-    calculate_time_with_parameters "$parsed_start_timestamp" "$parsed_end_timestamp" "$break_time" "$proj_name" "$log_date" "$note"
-  else
-    logger_debug "Could not log time since the project name send to this section was unset."
+  # Read potential start time
+  read_start_time=$(read_start_time_for_disk "start")
+  if [ $? -ne 0 ]; then
+    logger_debug "read_start_time_for_disk did get anything '$read_start_time'"
+    read_start_time=
   fi
+
+  # Start time
+  if [[ ! -z "${maybeStart:+foo}" ]]; then
+    logger_debug "'$maybeStart' was a timestamp"
+    parsed_start_timestamp=$(parse_timestamp "$maybeStart")
+  elif [ ! -z "${read_start_time:+foo}" ]; then
+    echo "Using start time $read_start_time that is saved from earlier."
+    logger_debug "Using '$read_start_time' as start time"
+    parsed_start_timestamp=$(parse_timestamp "$read_start_time")
+  else
+    echo "What start hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835)"
+    read start_timestamp
+    logger_debug "Read '$start_timestamp' as the start timestamp"
+    parsed_start_timestamp="$(parse_timestamp "$start_timestamp")"
+    (test_timestamp "$parsed_start_timestamp")
+    if [ $? -ne 0 ]; then
+      logger_debug "Entered '$start_timestamp' as a start time"
+      echo "'$start_timestamp' does not follow the format '$format'"
+      exit 1
+    fi
+  fi
+
+  if [[ ! -z "${maybeEnd:+foo}" ]]; then
+    logger_debug "'$maybeEnd' was a timestamp"
+    end_timestamp=$maybeEnd
+    parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
+  else
+    echo "What end hour:minute? (e.g. 8, 8.05, 8:10, 08:25, 0835) Empty for now"
+    read end_timestamp
+    logger_debug "Read '$end_timestamp' as the end timestamp"
+    parsed_end_timestamp=$(parse_timestamp "$end_timestamp")
+    (test_timestamp "$parsed_end_timestamp")
+    code=$?
+    if [ -z "$end_timestamp" ]; then
+      parsed_end_timestamp=$(parse_timestamp "$(date +%H%M)")
+    elif [ $code -ne 0 ]; then
+      logger_debug "Entered '$end_timestamp' as a end time"
+      echo "'$end_timestamp' does not follow the format '$format'"
+      exit 1
+    fi
+  fi
+
+  if [[ ! -z "${maybeBreak:+foo}" ]]; then
+    logger_debug "'$maybeBreak' was a valid number"
+    break_time=$maybeBreak
+  else
+    echo "How large of a break(in minutes)?"
+    read break_time
+    logger_debug "Read '$break_time' as the break time"
+    (test_is_number "$break_time")
+    if [ $? -ne 0 ]; then
+      echo "'$break_time' is not a number!"; exit 1;
+    fi
+  fi
+
+  if [[ -z "${note:+foo}" ]]; then
+    note=""
+  fi
+
+  logger_debug "Assumed inputs: Start:$maybeStart End:$maybeEnd Break:$maybeBreak"
+  logger_debug "Parsed: Start:$parsed_start_timestamp End:$parsed_end_timestamp Break:$break_time"
+  calculate_time_with_parameters "$parsed_start_timestamp" "$parsed_end_timestamp" "$break_time" "$proj_name" "$log_date" "$note"
 #############################################################
 # Edit logs
 #############################################################
