@@ -435,6 +435,41 @@ END
   deleteProject
 }
 
+testShowWeeklyLogsWithLogsExceedingFiveDays() {
+  # This test tests the estimisation when not having reached the target hours
+  # For example, logging time for 30 hours for 5 days, the estimate should instead of giving estimates for a 5
+  # day work week now give estimation of a 7 day work week because of the target hours not being achieved.
+  createProjectTest
+  mon="2017-08-14"
+  tue="2017-08-15"
+  wed="2017-08-16"
+  thu="2017-08-17"
+  fri="2017-08-18"
+  week="33"
+timelog $debug --dev "$dir" log ts 0800 1000 0 --date "$mon" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1000 0 --date "$tue" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1000 0 --date "$wed" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1000 0 --date "$thu" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1000 0 --date "$fri" >/dev/null << END
+y
+END
+  # Overtime by 1 hour logged(friday). Should mention that the user has worked overtime in show logs
+  stdout=$(timelog $debug --dev "$dir" show logs ts "$week")
+
+  cmd=$(grep -q "This yields an estimate of 15 hours for 2 more days" <<< $stdout ; echo $?)
+  assertTrue "Overtime of 1 hour was not mentioned" "[ $cmd -eq 0 ]"
+
+  deleteProject
+}
+
 testMultipleprojects() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
   createProjectWithParams "Test2" "ts2" "40" "240" "kr"
@@ -582,18 +617,11 @@ testCalculate() {
   timelog $debug --dev "$dir" calc 0800 1200 | grep -q "$regex"
   code=$?
   assertTrue "Calculating 0800 1200 with implicit break time 0 did not return '$regex'" "[ $code -eq 0 ]"
-}
 
-testMoneyPerHourCalculation() {
-  createProjectTest
-  timelog $debug --dev "$dir" log 0800 1000 0 >/dev/null <<END
-y
-END
-  calc="280" # 140 per hour pre tax and 2 hours logged => 240
-
-  cmd=$(timelog $debug --dev "$dir" show logs "$(date +%V)" | grep "You have earned $calc")
-  assertTrue "Calculating total money per hour for 2 hours on 140 mph did not retrieve string 'You have earned $calc'" "[ ! -z '$cmd' ]"
-  deleteProject
+  two_hours_regex="2/02:00"
+  timelog $debug --dev "$dir" calc 0800 1200 120 | grep -q "$two_hours_regex"
+  code=$?
+  assertTrue "Calculating 0800 1200 120(two hours break) did not return '$two_hours_regex'" "[ $code -eq 0 ]"
 }
 
 testCalculateInvalidTimes() {
@@ -608,6 +636,18 @@ testCalculateInvalidTimes() {
   timelog $debug --dev "$dir" calc 0800 1200 2b &>/dev/null
   code=$?
   assertTrue "Calculating 0800 1200 2b returned an exit code of $code" "[ $code -eq 1 ]"
+}
+
+testMoneyPerHourCalculation() {
+  createProjectTest
+  timelog $debug --dev "$dir" log 0800 1000 0 >/dev/null <<END
+y
+END
+  calc="280" # 140 per hour pre tax and 2 hours logged => 240
+
+  cmd=$(timelog $debug --dev "$dir" show logs "$(date +%V)" | grep "You have earned $calc")
+  assertTrue "Calculating total money per hour for 2 hours on 140 mph did not retrieve string 'You have earned $calc'" "[ ! -z '$cmd' ]"
+  deleteProject
 }
 
 testUnknownArguments() {
@@ -634,6 +674,28 @@ testUnknownArguments() {
 testUsage() {
   timelog $debug --dev "$dir" --help &>/dev/null
   assertTrue "Calling --help did not return an exit code of 1" "[ $code -eq 1 ]"
+}
+
+testDeleteProjectWithNoProjects() {
+  timelog $debug --dev "$dir" delete project | grep -q 'No projects'
+  code=$?
+  assertTrue "Deleting a project without any projects created did not output matching string" "[ $code -eq 0 ]"
+}
+
+testCreateDuplicateProjects() {
+  createProjectTest
+
+timelog $debug --dev "$dir" create project << END | grep -q 'Could not create project, it already exists!'
+Test
+ts
+40
+140
+kr
+END
+  code=$?
+  assertTrue "Creating duplicate projects did not return an exit code that is $code" "[ $code -eq 0 ]"
+
+  deleteProject
 }
 
 testPurge() {
