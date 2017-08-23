@@ -1,9 +1,17 @@
 language: bash
+# Travis build lifecycle https://docs.travis-ci.com/user/customizing-the-build#The-Build-Lifecycle
 
 sudo: true
-
 services:
   - docker
+env:
+  - KCOV_IMG="ragnaroek/kcov:v33"
+cache:
+  bundler: true
+  directories: $HOME/docker
+
+before_install:
+ - if [[ -f "$HOME/docker/kcov" ]]; then docker load -i "$HOME/docker/kcov"; fi
 
 before_script:
   - chmod +x test/unittest.sh
@@ -19,10 +27,9 @@ script:
   - pushd test/
   - ./unittest.sh
   - popd
-  - docker build -t kcov_img .
-  - docker run --name kcov_container kcov_img ls
-  - mkdir cov/
-  - docker cp kcov_container:/tmp/cov cov/
-  - cd cov
+  - ./runMetrics.sh $KCOV_IMMG
+  - cd metrics
   - bash <(curl -s https://codecov.io/bash)
 
+before_cache:
+  - docker save $KCOV_IMG -o "$HOME/docker/kcov"
