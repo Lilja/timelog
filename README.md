@@ -15,10 +15,10 @@ The purpose of this tool is to have a terminal friendly tool that can easily tra
 
 This new repository with a full re-write has more tools and support to log multiple different projects.
 ### Demo
-![ttystudio](demo.gif)
-This gif shows a simple demonstration that creates a project, logs the time between 08:00-17:20 with 40 minutes of break time and shows a weekly report that shows various statistics.
+![ttygif](demo.gif)
+This gif shows a simple demonstration that creates a project, logs the time between 08:00-16:00 with 45 minutes of break time, logs time for yesterday with similar times and finally shows a weekly report that shows various statistics.
 
-Created with [ttystudio](https://github.com/chjj/ttystudio)
+Created with [ttygif](https://github.com/icholy/ttygif)
 
 ### Installation
 Clone the repository, then just add the `bin` directory to the `$PATH` by running:
