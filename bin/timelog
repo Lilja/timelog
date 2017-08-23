@@ -22,10 +22,11 @@ function usage {
   echo ""
   echo "Usage: $(basename $0)"
   echo " * log (project_id) (start time, end time, break time) [--note] [--date timestamp]"
-  echo " * list project"
-  echo " * show logs (project_id) (week) [--raw]"
-  echo " * create project"
-  echo " * delete project"
+  echo " * view (project_id) (week) [--raw]"
+  echo " * project"
+  echo "   * create"
+  echo "   * list"
+  echo "   * delete"
   echo " * start (project_id)"
   echo " * calc start time, end time, break time"
   echo " * --help"
@@ -594,67 +595,63 @@ get_all_projects
 while [[ $# -ge 1 ]]; do
   logger_debug "Processing '$1'"
   case "$1" in
-    create)
+    project)
       case "$2" in
-        project)
+        create)
           logger_debug "About to create project"
           new_project="y"
           specify_project="n"
-          shift ; shift
+          shift
         ;;
-        *)
-          echo "Could not comprehend '$2' with create keyword"
-          exit 1
-        ;;
-      esac
-    ;;
-    show)
-      case "$2" in
-        logs)
-          show_logs="y"
-          specify_project="y"
-          proj_name=$(get_project_from_id $3)
-          action="show logs for?"
-          if [ ! -z "$proj_name" ]; then
-            logger_debug "ID from argument matched: '$3'"
-            specify_project="n"
-            shift
-          fi
-
-          k=$(echo "$3" | grep -o '[0-9]*')
-          if [[ "$k" == "$3" && $k -ge 0 && $k -le 52 ]]; then
-            logger_debug "Week from argument matched: '$3'"
-            show_logs_week=$3
-            shift
-          fi
-
-          elem=$(echo $3 | grep -o '[0-9]*')
-          if [[ ! -z "$3" && $elem == $3 ]]; then
-            logger_debug "Year from argument matched: '$3'"
-            year=$elem
-            shift
-          fi
-
-          shift ; shift
-        ;;
-        *)
-          echo "Could not comprehend '$2' with show keyword"
-          exit 1
-        ;;
-      esac
-    ;;
-    delete)
-      case "$2" in
-        project)
+        delete)
+          logger_debug "About to delete project"
           delete_project="y"
           specify_project="n"
-          shift ; shift
+          shift
+        ;;
+        list)
+          logger_debug "About to list project(s)"
+          list_projects="y"
+          specify_project="n"
+          shift
+        ;;
+        list_id)
+          list_projects | grep -o '\[[^]]*\]' | sed 's#^\[##g; s#\]$##g' | tr '\n' ' '
+          shift
         ;;
         *)
-          echo "Could not comprehend '$2' with delete keyword"
+          echo "Could not comprehend '$2' with project keyword"
           exit 1
         ;;
       esac
+      shift
+    ;;
+    view)
+      show_logs="y"
+      specify_project="y"
+      proj_name=$(get_project_from_id $2)
+      action="show logs for?"
+      if [ ! -z "$proj_name" ]; then
+        logger_debug "ID from argument matched: '$2'"
+        specify_project="n"
+        shift
+      fi
+
+      k=$(echo "$2" | grep -o '[0-9]*')
+      if [[ "$k" == "$2" && $k -ge 0 && $k -le 52 ]]; then
+        logger_debug "Week from argument matched: '$2'"
+        show_logs_week=$2
+        shift
+      fi
+
+      elem=$(echo $2 | grep -o '[0-9]*')
+      if [[ ! -z "$2" && $elem == $2 ]]; then
+        logger_debug "Year from argument matched: '$2'"
+        year=$elem
+        shift
+      fi
+
+      shift
     ;;
     --help)
       usage 0
@@ -766,24 +763,6 @@ while [[ $# -ge 1 ]]; do
 
       echo "Times: ${t1h}${t1m} ${t2h}${t2m} $break_minutes"
       time_to_decimal_time "$t1h" "$t1m" "$t2h" "$t2m" "$break_minutes"
-    ;;
-    list)
-      case "$2" in
-        projects)
-          list_projects="y"
-          specify_project="n"
-          shift
-        ;;
-        project_id)
-          list_projects | grep -o '\[[^]]*\]' | sed 's#^\[##g; s#\]$##g' | tr '\n' ' '
-          shift
-        ;;
-        *)
-          echo "Could not comprehend '$2' with list keyword"
-          exit 1
-        ;;
-      esac
-      shift
     ;;
     start)
       logger_debug "Start matched"
