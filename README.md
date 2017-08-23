@@ -39,7 +39,7 @@ It will log time inputed via this CLI to store it to the disk in $HOME/.config/t
 
 Usage: timelog
  - log (project_id) (start time) (end time) (break time) [--note] [--date timestamp]
- - show logs (project_id) (week) [year] [--raw]
+ - view (project_id) (week) [year] [--raw]
  - project
    - create
    - list
@@ -130,7 +130,7 @@ What is the currency paid?
 
 Listing the projects that are created
 ```
-timelog projects list
+timelog project list
 The projects are:
 1: Test [ts]
 ```
