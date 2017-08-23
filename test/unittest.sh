@@ -220,6 +220,24 @@ END
   assertTrue "Exit code was not 1" "[ $code -eq 1 ]"
   assertTrue "Even though log createn went south, something was created in the log file" "[ $( wc -l < $dir/Test.logs) -eq 0 ]"
 
+timelog $debug --dev "$dir" log ts >/dev/null <<END
+0800
+1000
+300
+END
+  code=$?
+  assertTrue "Exit code was not 1" "[ $code -eq 1 ]"
+  assertTrue "Even though log createn went south, something was created in the log file" "[ $( wc -l < $dir/Test.logs) -eq 0 ]"
+
+timelog $debug --dev "$dir" log ts >/dev/null <<END
+0800
+2400
+0
+END
+  code=$?
+  assertTrue "Exit code was not 1" "[ $code -eq 1 ]"
+  assertTrue "Even though log createn went south, something was created in the log file" "[ $( wc -l < $dir/Test.logs) -eq 0 ]"
+
   deleteProject
 }
 
