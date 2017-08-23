@@ -403,6 +403,35 @@ testShowWeeklyLogsEmpty() {
   deleteProject
 }
 
+testShowWeeklyLogsWithUnorderedLogging() {
+  createProjectTest
+  mon="2017-08-14"
+  tue="2017-08-15"
+  local_monday_name=$(date +%A -d "$mon" | sed 's/^\(.\)/\U\1/')
+  local_tuesday_name=$(date +%A -d "$tue" | sed 's/^\(.\)/\U\1/')
+  week="33"
+timelog $debug --dev "$dir" log ts 0800 1600 0 --date "$tue" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1600 0 --date "$mon" >/dev/null << END
+y
+END
+timelog $debug --dev "$dir" log ts 0800 1600 0 --date "2012-01-01" >/dev/null << END
+y
+END
+  stdout=$(timelog $debug --dev "$dir" view ts "$week")
+  monday_output=$(echo "$stdout" | head -n2 | tail -n1 | grep "$local_monday_name")
+  tuesday_output=$(echo "$stdout" | head -n3 | tail -n1 | grep "$local_tuesday_name")
+  if [ ! -z "$monday_output" ] && [ ! -z "$tuesday_output" ]; then
+    in_order=0
+  else
+    in_order=-1
+  fi
+  assertTrue "When logging with --date at different days, the days was in order when viewing the logs" "[ $in_order -eq 0 ]"
+
+  deleteProject
+}
+
 testShowWeeklyLogsWithOvertime() {
   createProjectTest
   mon="2017-08-14"
