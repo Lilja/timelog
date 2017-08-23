@@ -414,7 +414,7 @@ function write_to_disk {
 
   log_date=$(date +%Y-%m-%d -d "$log_date_input")
   week_date=$(date +%G-%V-%u -d "$log_date_input")
-  proj_log_path=$(get_log_path_for_project $project)
+  proj_log_path=$(get_log_path_for_project "$project")
   entry="$week_date/$log_date [$dec_time]{$mil_time} ($start_time $end_time $break_min) [$note_text]"
   echo "$entry" >> "$proj_log_path"
   code=$?
@@ -518,6 +518,8 @@ function time_to_decimal_time {
     if [ ${#t2m} -eq 1 ]; then t2m="0$t2m"; fi
     echo "$dectime/$t2h:$t2m"
     exit 0
+  else
+    exit 2
   fi
 }
 
@@ -568,19 +570,32 @@ function calculate_time_with_parameters {
 
   logger_debug "Time to decimal time inputs: '$t1h' '$t1m' '$t2h' '$t2m' '$t3m'"
   both_times=$(time_to_decimal_time $t1h $t1m $t2h $t2m $t3m)
+  code=$?
   dec_time=$(echo $both_times | grep -o '^[0-9]\+\.*[0-9]*')
   mil_time=$(echo $both_times | grep -o '\/[0-9]\+:[0-9]*' | sed 's#\/##')
-  echo "Times: $t1h:$t1m, $t2h:$t2m, $t3m. Decimal time: $dec_time Military time: $mil_time"
-  echo "For date $log_date"
+  case $code in
+    1)
+      echo "Times suppplied was not 0 <= x <= 23"
+      exit 1
+    ;;
+    2)
+      echo "Break time supplied was bigger than evertything combined"
+      exit 1
+    ;;
+    0)
+      echo "Times: $t1h:$t1m, $t2h:$t2m, $t3m. Decimal time: $dec_time Military time: $mil_time"
+      echo "For date $log_date"
 
-  echo "Save this to $proj_name project log? y/n"
-  read confirm
-  logger_debug "Confirm: '$confirm'"
-  if [ "$confirm" = "y" ]; then
-    write_to_disk $project $dec_time $mil_time "$1" "$2" "$3" "$log_date" "$note_text"
-  else
-    echo "Did not save entry"
-  fi
+      echo "Save this to $proj_name project log? y/n"
+      read confirm
+      logger_debug "Confirm: '$confirm'"
+      if [ "$confirm" = "y" ]; then
+        write_to_disk "$project" $dec_time $mil_time "$1" "$2" "$3" "$log_date" "$note_text"
+      else
+        echo "Did not save entry"
+      fi
+    ;;
+  esac
 }
 
 # If empty arguments, call usage
@@ -923,7 +938,7 @@ elif [ ! -z "$show_logs" ]; then
     logger_debug "project: $proj_name"
 
     if [ ! -z "$proj_name" ]; then
-      get_project_meta_info $proj_name
+      get_project_meta_info "$proj_name"
       logger_debug "Showing logs for $proj_name given week $show_logs_week"
       if [ -z "$year" ]; then year=$(date +%Y); fi
       week_stats "$(cat "$log_path/$proj_name.logs")" "$show_logs_week" "$year"
