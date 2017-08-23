@@ -76,7 +76,7 @@ function week_stats {
   logger_debug "Year: '$year'"
 
   # Grep -0* because date's week 3 gives you 03. 03 is saved to disk but user doesn't need to know about that.
-  records=$(echo "$file_contents" | grep "$year-0*$week-[1-7]*\/")
+  records=$(echo "$file_contents" | grep "$year-0*$week-[1-7]*\/" | sort -k1.12,1.21)
   day=$(echo "$records" | grep -o "\/$year-[0-9]\+-[0-9]\+" | sed 's#^\/##')
   if [ -z $target_hours ]; then { echo "Target hours not specified." ; exit 1 ; } fi
 
