@@ -39,10 +39,11 @@ It will log time inputed via this CLI to store it to the disk in $HOME/.config/t
 
 Usage: timelog
  - log (project_id) (start time) (end time) (break time) [--note] [--date timestamp]
- - list project
  - show logs (project_id) (week) [year] [--raw]
- - create project
- - delete project
+ - project
+   - create
+   - list
+   - delete
  - start (project_id)
  - calc start time, end time, break time
  - --help
@@ -57,11 +58,11 @@ All arguments in brackets are optional
 ```
 
 ### Commands
-`timelog create project`
+`timelog project create`
 
 to create a new project(interactively)
 
-`timelog list projects`
+`timelog project list`
 
 to list current projects that are configured
 
@@ -73,11 +74,11 @@ It's possible to log a note for the entry with `--note`. A prompt will later let
 
 It's also possible to log something that is different from today. Specify a date with `--date` like `--date 2017-01-01` to log for the `1st of Jan, 2017`.
 
-`timelog show logs (project id) (week) (year) | [--raw]`
+`timelog view (project id) (week) (year) | [--raw]`
 
 to show logs for a `project id` during `week number` and `year` or specify `--raw` to open up the logs with `less`
 
-`timelog delete project`
+`timelog project delete`
 
 to delete a project(interactively)
 
@@ -112,7 +113,7 @@ shell that can execute `[[ ]]` if-statements
 ### Examples
 Creating a project
 ```
-timelog create project
+timelog project create
 Creating a new project
 What would you like to call it?
   Test
@@ -129,7 +130,7 @@ What is the currency paid?
 
 Listing the projects that are created
 ```
-timelog list projects
+timelog projects list
 The projects are:
 1: Test [ts]
 ```
@@ -145,7 +146,7 @@ y
 Showing logs for a project given a week
 
 ```
-timelog show logs ts 28
+timelog view ts 28
 Days worked for week 28
 Monday: 6.75h / 06:45
 ------
@@ -158,7 +159,7 @@ You have earned 337.5 kr pre-tax!
 
 Deleting a project
 ```
-timelog delete project
+timelog project delete
 The projects
 1: Test [ts]
 Which project do you want deleted?
@@ -193,18 +194,18 @@ The `def` folder contains project definition which is used as meta-data for the 
 The program will read from `$log_path` and list the projects that are created if `project id` has not been specified
 #### Argument documentation
 ##### Create project
-`timelog create project`
+`timelog project create`
 
-`create project` is keywords.
+`project create` is keywords.
 
 The program will prompt for input after it has been invoked.
 
 ---
 
 ##### List projects
-`timelog list projects`
+`timelog project list`
 
-`list projects` is keywords.
+`project list` is keywords.
 
 ---
 ##### Log project
@@ -225,8 +226,8 @@ The program will prompt for input after it has been invoked.
 `--date` Optional. Possible to log for a different date, specify with `--date timestamp` where `timestamp` is something the program `date` can format.
 
 ---
-##### Show logs
-`timelog show logs (project id) (week) (year) | (--raw)`
+##### View logs
+`timelog view (project id) (week) (year) | (--raw)`
 
 `show logs` is keywords.
 
@@ -259,9 +260,9 @@ First, checks if `xdg-open` is a command. If so, will run it. Otherwise, it will
 Writes the time down onto the filesystem and is later read when logging.
 
 ##### Delete project
-`timelog delete project`
+`timelog project delete`
 
-`delete project` is keywords.
+`project delete` is keywords.
 
 The program will prompt for which project to delete.
 
