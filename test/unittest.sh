@@ -273,16 +273,16 @@ y
 END
   code=$?
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
-  assertTrue "A log entry was not created when specifying custom date" "[ $( wc -l < $dir/Test.logs) -eq 1 ]"
+  assertTrue "A log entry was not created with '0800 1000 0' when specifying custom date" "[ $( wc -l < $dir/Test.logs) -eq 1 ]"
 
 timelog $debug --dev "$dir" log ts 0800 1100 0 --date "$nextDay" >/dev/null <<END
 y
 END
   code=$?
   logs=$(cat "$dir/Test.logs")
-  amount_of_logs=$(wc -l < $dir/Test.logs 2>/dev/null)
+  amount_of_logs=$(wc -l < "$dir/Test.logs" 2>/dev/null)
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
-  assertTrue "A log entry was not created. The amount of logs are: '$amount_of_logs'" "[ $amount_of_logs -eq 2 ]"
+  assertTrue "A log entry was not created with '0800 1100 0'. The amount of logs are: '$amount_of_logs'" "[ $amount_of_logs -eq 2 ]"
 
   dayOneLogs=$(echo "$logs" | head -n1)
   dayTwoLogs=$(echo "$logs" | tail -n1)
@@ -291,26 +291,26 @@ END
   dayOneDate=$(echo "$dayOneLogs" | grep -o "\/$day")
   assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
   assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
-  assertTrue "Custom date was not $day" "[ '$dayOneDate' = '/$day' ]"
+  assertTrue "Custom date '$day' was not '$dayOneDate'" "[ '$dayOneDate' = '/$day' ]"
 
   dec_time=$(echo "$dayTwoLogs" | grep -o '\[3\]' | grep -o '3')
   mil_time=$(echo "$dayTwoLogs" | grep -o '\{03:00\}' | grep -o '03:00')
   dayTwoDate=$(echo "$dayTwoLogs" | grep -o "\/$nextDay")
   assertTrue "Decimal time was not 3" "[ $dec_time -eq 3 ]"
   assertTrue "HH:mm time was not 03:00" "[ $mil_time = '03:00' ]"
-  assertTrue "Custom date was not $nextDay" "[ '$dayTwoDate' = '/$nextDay' ]"
+  assertTrue "Custom date '$nextDay' was not '$dayTwoDate'" "[ '$dayTwoDate' = '/$nextDay' ]"
 
-timelog $debug --dev "$dir" log ts 0800 1100 0 --date >/dev/null <<END
+timelog $debug --dev "$dir" log ts 0800 1100 0 --date &>/dev/null <<END
 $nextDayAfterThat
 y
 END
   code=$?
   logs=$(cat "$dir/Test.logs")
-  amount_of_logs=$(wc -l < $dir/Test.logs 2>/dev/null)
+  amount_of_logs=$(wc -l < "$dir/Test.logs" 2>/dev/null)
   dayThreeDate=$(echo "$logs" | grep -o "\/$nextDayAfterThat")
   assertTrue "Exit code was not 0" "[ $code -eq 0 ]"
-  assertTrue "A log entry was not created when specifing date throught prompt. The amount of logs are: '$amount_of_logs'" "[ $amount_of_logs -eq 3 ]"
-  assertTrue "Custom date was not '$nextDayAfterThat', '$dayThreeDate'" "[ '$dayThreeDate' = '/$nextDayAfterThat' ]"
+  assertTrue "A log entry was not created when specifing date throught prompt($nextDayAfterThat). The amount of logs are: '$amount_of_logs' and should be 3" "[ $amount_of_logs -eq 3 ]"
+  assertTrue "Custom date '$nextDay' was not '$nextDayAfterThat'" "[ '$dayThreeDate' = '/$nextDayAfterThat' ]"
 
   deleteProject
 }
@@ -562,7 +562,7 @@ testLogStart() {
   now_in_one_hour=$(date +%H%M -d "$(($(date +%k)+1))$(date +%M)")
   timelog $debug --dev "$dir" start ts1 >/dev/null
 
-timelog $debug --dev "$dir" log ts1>/dev/null << END
+timelog $debug --dev "$dir" log ts1 &>/dev/null << END
 $now_in_one_hour
 0
 y
@@ -573,6 +573,66 @@ END
   worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
   assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
   assertTrue "Worked hours was not 1" "[ ! -z '$worked_hours' ]"
+
+  deleteProject
+}
+
+testLogPauseAndBreak() {
+  # Log: 12:00 - 12:30(30 min), 13:15-13-20(5 min), 13:30-13:55(25 min) = 1h
+  # Break: 12:30-13:15(45 min), 13:20-13:30(10 min)
+  started="2017-01-02 12:00"
+  paused="2017-01-02 12:30"
+  resumed="2017-01-02 13:15"
+  re_paused="2017-01-02 13:20"
+  re_resumed="2017-01-02 13:30"
+  ended="2017-01-02 14:00"
+  week=1
+
+  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
+
+  timelog $debug --dev "$dir" start ts1 --date "$started" >/dev/null
+  assertTrue "timelog start did not return 0 $?" $?
+  timelog $debug --dev "$dir" pause ts1 --date "$paused" >/dev/null
+  assertTrue "timelog pause did not return 0 $?" $?
+  timelog $debug --dev "$dir" resume ts1 --date "$resumed" >/dev/null
+  assertTrue "timelog resume did not return 0 $?" $?
+  timelog $debug --dev "$dir" pause ts1 --date "$re_paused" >/dev/null
+  assertTrue "timelog pause did not return 0 $?" $?
+  timelog $debug --dev "$dir" resume ts1 --date "$re_resumed" >/dev/null
+  assertTrue "timelog resume did not return 0 $?" $?
+  timelog $debug --dev "$dir" log ts1 --date "$ended" >/dev/null <<END
+13:55
+y
+END
+  assertTrue "timelog log did not return 0 $?" $?
+
+  logs=$(timelog $debug --dev "$dir" view ts1 $week)
+  remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
+  worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
+  assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
+  assertTrue "Worked hours was not 1" "[ ! -z '$worked_hours' ]"
+
+  deleteProject
+}
+
+testLogPauseAndBreakNotify() {
+  started="2017-01-02 12:00"
+  paused="2017-01-02 12:30"
+  resumed="2017-01-02 13:15"
+  re_paused="2017-01-02 13:20"
+  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
+  timelog $debug --dev "$dir" pause ts1 --date "$paused" >/dev/null
+  assertTrue "timelog pause did not return 0 $?" $?
+  timelog $debug --dev "$dir" resume ts1 --date "$resumed" >/dev/null
+  assertTrue "timelog resume did not return 0 $?" $?
+  timelog $debug --dev "$dir" pause ts1 --date "$re_paused" >/dev/null
+
+  timelog $debug --dev "$dir" log ts1 << END | grep -q "NOTE: There is an uneven amount of"
+08:00
+12:00
+y
+END
+  assertTrue "timelog log with pause that did not resume did not output the expected text" $?
 
   deleteProject
 }

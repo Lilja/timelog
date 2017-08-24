@@ -28,6 +28,8 @@ function usage {
   echo "   * list"
   echo "   * delete"
   echo " * start (project_id)"
+  echo " * pause (project_id)"
+  echo " * resume (project_id)"
   echo " * calc start time, end time, break time"
   echo " * --help"
   echo " * --version"
@@ -172,6 +174,18 @@ function save_time_to_disk() {
   fi
 }
 
+function wrap_date() {
+    if [ ! -z "${1:+foo}" ]; then
+        if date --version &>/dev/null; then
+            date "$2" -d "$1"
+        else
+            exit 1
+        fi
+    else
+        date "$2"
+    fi
+}
+
 function read_start_time_for_disk() {
   # format timestamp-of-day;time;project_id
   # $1 = kind of operation, if break or start
@@ -179,23 +193,53 @@ function read_start_time_for_disk() {
   # $3 = YYYY-mm-dd
   operation="$1"
 
-  if [ -z "${proj_name:+foo}" ]; then
-    exit 1
-  fi
-  if [ -z "${operation:+foo}" ]; then
-    exit 1
-  fi
+  if [ $operation = "break" ]; then
+    timestamps=$(grep "^$proj_name;\(pause\|resume\)" "$log_path/saved_log_times")
+    amount_of_timestamps=$(echo "$timestamps" | wc -l)
+    # If user have forgotten to close a pause call, remove the pause call.
+    note=0
+    if [ $((amount_of_timestamps % 2)) -ne 0 ]; then
+        timestamps=$(echo "$timestamps" | head -n -1)
+        amount_of_timestamps=$((amount_of_timestamps-1))
+        note=1
+    fi
 
-  if [ -f "$log_path/saved_log_times" ]; then
+    if [ $amount_of_timestamps -gt 0 ]; then
+
+        pause=$(echo "$timestamps" | sed "${iterator}q;d")
+        iterator=1
+        while [ ! -z "$pause" ]; do
+            pause_ts=$(echo "$pause" | sed 's#.*;pause;##')
+            iterator=$((iterator+=1))
+            resume=$(echo "$timestamps" | sed "${iterator}q;d")
+            resume_ts=$(echo "$resume" | sed 's#.*;resume;##')
+
+            diff_hh_mm=$(( ($(date -d "$resume_ts" +%s) - $(date -d "$pause_ts" +%s) )/(60)))
+            echo "$diff_hh_mm"
+            iterator=$((iterator+=1))
+            pause=$(echo "$timestamps" | sed "${iterator}q;d")
+        done | awk '{s+=$1} END {print s}'
+
+        if [ $note -eq 0 ]; then
+            exit 0
+        else
+            exit 3
+        fi
+    else
+        echo "No timestamps submitted"
+        exit 2
+    fi
+
+  else
     timestamp=$(grep "^$proj_name;$operation" "$log_path/saved_log_times" | tail -n1 | tr ';' '\n' | tail -n1)
     if [ ! -z "$timestamp" ]; then
-      date +%H%M -d "$timestamp"
+      wrap_date "$timestamp" "+%H%M"
     else
       exit 1
     fi
-  else
-    exit 1
+
   fi
+
 }
 
 function weekly_stats_days {
@@ -543,7 +587,7 @@ function calculate_time_with_parameters {
   logger_debug "Date: '$log_date'"
   if [[ ! -z "${log_date:+foo}" ]]; then
     logger_debug "Log date is set to something"
-    if [ $log_date == "prompt" ]; then
+    if [ "$log_date" == "prompt" ]; then
       logger_debug "Log date needs to be prompted"
       echo "Please enter a date with the format YYY-mm-dd. For example, 2017-01-02 for 2nd Jan 2017"
       read -r log_date
@@ -726,11 +770,34 @@ while [[ $# -ge 1 ]]; do
       shift
     ;;
     --date)
-      (date -d "$2" 1>/dev/null 2>&1)
-      code=$?
-      if [ ! -z "$2" ] && [ $code -eq 0 ]; then
-        logger_debug "Log date set through arguments '$2'"
-        log_date=$2
+      if [ ! -z "${3:+foo}" ]; then
+          logger_debug "Trying --date with two args"
+          (date -d "$2 $3" 1>/dev/null 2>&1)
+          code=$?
+          if [ $code -ne 0 ]; then
+            logger_debug "Two arguments did not work out, falling back to one argument"
+            (date -d "$2" 1>/dev/null 2>&1)
+            code=$?
+          fi
+      elif [ ! -z "${2:+foo}" ]; then
+            logger_debug "Trying --date with one arg"
+            (date -d "$2" 1>/dev/null 2>&1)
+            code=$?
+      else
+            logger_debug "$2 and $3 is not set, the user will prompt for date."
+            code=1
+      fi
+
+      if [ $code -eq 0 ]; then
+        if [ ! -z "${3:+foo}" ]; then
+            logger_debug "Log date set through arguments \$2 and \$3 '$2 $3'"
+            log_date="$2 $3"
+            shift; shift
+        else
+            logger_debug "Log date set through argument \$2 '$2'"
+            log_date="$2"
+            shift
+        fi
         shift
       else
         logger_debug "Log date not supplied with --date. Will prompt later."
@@ -785,6 +852,34 @@ while [[ $# -ge 1 ]]; do
       specify_project="y"
       proj_name=$(get_project_from_id "$2")
       action="log start time for"
+      if [ ! -z "$proj_name" ]; then
+        logger_debug "Project id specified from arguments"
+        specify_project="n"
+        id_matched="y"
+        shift
+      fi
+      shift
+    ;;
+    pause)
+      logger_debug "Start matched"
+      log_paused_time="y"
+      specify_project="y"
+      proj_name=$(get_project_from_id "$2")
+      action="pause time for"
+      if [ ! -z "$proj_name" ]; then
+        logger_debug "Project id specified from arguments"
+        specify_project="n"
+        id_matched="y"
+        shift
+      fi
+      shift
+    ;;
+    resume)
+      logger_debug "Start matched"
+      log_resumed_time="y"
+      specify_project="y"
+      proj_name=$(get_project_from_id "$2")
+      action="resume time for"
       if [ ! -z "$proj_name" ]; then
         logger_debug "Project id specified from arguments"
         specify_project="n"
@@ -912,9 +1007,21 @@ fi
 #############################################################
 # Log start time
 #############################################################
+if [ ! -z "$log_paused_time" ]; then
+  logger_debug "About to store date from now to disk [pause]"
+  now=$(wrap_date "$log_date" "+%Y-%m-%d %H:%M")
+  save_time_to_disk "pause" "$now"
+fi
+
+if [ ! -z "$log_resumed_time" ]; then
+  logger_debug "About to store date from now to disk [resume]"
+  now=$(wrap_date "$log_date" "+%Y-%m-%d %H:%M")
+  save_time_to_disk "resume" "$now"
+fi
+
 if [ ! -z "$log_start_time" ]; then
-  logger_debug "About to store date from now to disk"
-  now=$(date +%Y-%m-%d\ %H:%M)
+  logger_debug "About to store date from now to disk [start]"
+  now=$(wrap_date "$log_date" "+%Y-%m-%d %H:%M")
   save_time_to_disk "start" "$now"
 fi
 
@@ -962,6 +1069,17 @@ elif [ ! -z "$log_time" ]; then
     read_start_time=
   fi
 
+  # Read potential pause/resumed time
+  read_break_time=$(read_start_time_for_disk "break")
+  code=$?
+  remind_of_break=0
+  if [ $code -eq 3 ]; then
+    remind_of_break=1
+  elif [ $code -ne 0 ]; then
+    logger_debug "read_start_time_for_disk did get anything '$read_break_time'"
+    read_break_time=
+  fi
+
   # Start time
   if [[ ! -z "${maybeStart:+foo}" ]]; then
     logger_debug "'$maybeStart' was a timestamp"
@@ -1004,6 +1122,12 @@ elif [ ! -z "$log_time" ]; then
   if [[ ! -z "${maybeBreak:+foo}" ]]; then
     logger_debug "'$maybeBreak' was a valid number"
     break_time=$maybeBreak
+  elif [ ! -z "$read_break_time" ]; then
+    if [ "$remind_of_break" -eq 1 ]; then
+        echo "NOTE: There is an uneven amount of pause/resume logs. Did you properly resume a paused break?"
+    fi
+    echo "Using $read_break_time minutes as break time"
+    break_time=$read_break_time
   else
     echo "How large of a break(in minutes)?"
     read break_time
