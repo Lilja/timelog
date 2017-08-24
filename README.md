@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/Lilja/timelog.svg?branch=master)](https://travis-ci.org/Lilja/timelog)
-[![Stories in Progress](https://badge.waffle.io/Lilja/timelog.png?label=in%20progress&title=In%20Progress)](https://waffle.io/Lilja/timelog?utm_source=badge)
+[![Stories in Progress](https://img.shields.io/waffle/label/Lilja/timelog/in%20progress.svg](https://waffle.io/Lilja/timelog?utm_source=badge)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/bc1b73b95b364475965ec09b444de618)](https://www.codacy.com/app/Lilja/timelog?utm_source=github.com&utm_medium=referral&utm_content=Lilja/timelog&utm_campaign=badger)
 [![codecov](https://codecov.io/gh/Lilja/timelog/branch/master/graph/badge.svg)](https://codecov.io/gh/Lilja/timelog)
 
