@@ -10,6 +10,11 @@ cache:
   bundler: true
   directories: $HOME/docker
 
+matrix:
+  include:
+    - os: linux
+    - os: osx
+
 before_install:
  - if [[ -f "$HOME/docker/kcov" ]]; then docker load -i "$HOME/docker/kcov"; fi
 
