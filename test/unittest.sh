@@ -13,7 +13,7 @@ dir="$PWD/dev"
 mkdir "$dir"
 
 createProjectWithParams() {
-timelog $debug --dev "$dir" project create >/dev/null <<END
+timelog $debug --dev "$dir" project create &>/dev/null <<END
 $1
 $2
 $3
