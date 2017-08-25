@@ -31,7 +31,11 @@ wrap_date() {
   if [ ! -z "${2:+foo}" ]; then
     if date --version >/dev/null 2>&1; then
       # GNU DATE GOES HERE
-      [ ! -z "$1" ] && date "$1" -d "$2" || date -d "$2"
+      if [ ! -z "$1" ]; then
+          date "$1" -d "$2"
+      else
+          date -d "$2"
+      fi
     else
       # BSD DATE GOES HERE
       # if %Y-%m-%d %H:%M
@@ -238,7 +242,7 @@ END
   assertTrue "A log entry was not created" "[ $amount_of_logs -eq 1 ]"
 
   dec_time=$(echo "$logs" | grep -o '\[2\]' | grep -o '2')
-  mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
+  mil_time=$(echo "$logs" | grep -o '{02:00}' | grep -o '02:00')
   assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
   assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
   deleteProject
@@ -307,7 +311,7 @@ END
   assertTrue "A log entry was not created" "[ $amount_of_logs -eq 1 ]"
 
   dec_time=$(echo "$logs" | grep -o '\[1\]' | grep -o '1')
-  mil_time=$(echo "$logs" | grep -o '\{01:00\}' | grep -o '01:00')
+  mil_time=$(echo "$logs" | grep -o '{01:00}' | grep -o '01:00')
   assertTrue "Decimal time was not 1" "[ $dec_time -eq 1 ]"
   assertTrue "HH:mm time was not 01:00. $logs" "[ $mil_time = '01:00' ]"
   deleteProject
@@ -337,14 +341,14 @@ END
   dayOneLogs=$(echo "$logs" | head -n1)
   dayTwoLogs=$(echo "$logs" | tail -n1)
   dec_time=$(echo "$dayOneLogs" | grep -o '\[2\]' | grep -o '2')
-  mil_time=$(echo "$dayOneLogs" | grep -o '\{02:00\}' | grep -o '02:00')
+  mil_time=$(echo "$dayOneLogs" | grep -o '{02:00}' | grep -o '02:00')
   dayOneDate=$(echo "$dayOneLogs" | grep -o "\/$day")
   assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
   assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
   assertTrue "Custom date '$day' was not '$dayOneDate'" "[ '$dayOneDate' = '/$day' ]"
 
   dec_time=$(echo "$dayTwoLogs" | grep -o '\[3\]' | grep -o '3')
-  mil_time=$(echo "$dayTwoLogs" | grep -o '\{03:00\}' | grep -o '03:00')
+  mil_time=$(echo "$dayTwoLogs" | grep -o '{03:00}' | grep -o '03:00')
   dayTwoDate=$(echo "$dayTwoLogs" | grep -o "\/$nextDay")
   assertTrue "Decimal time was not 3" "[ $dec_time -eq 3 ]"
   assertTrue "HH:mm time was not 03:00" "[ $mil_time = '03:00' ]"
@@ -427,7 +431,7 @@ END
   logs=$(cat "$dir/Test.logs")
 
   dec_time=$(echo "$logs" | grep -o '\[[0-9]*\.*[0-9]*\]' | grep -o '[0-9]*\.[0-9]*')
-  mil_time=$(echo "$logs" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
+  mil_time=$(echo "$logs" | grep -o '{[0-9]*:[0-9]*}' | grep -o '[0-9]*:[0-9]*')
   assertTrue "Decimal time did not equal 8.8" "[ $dec_time = '8.8' ]"
   assertTrue "Decimal time did not equal 08:48" "[ $mil_time = '08:48' ]"
 

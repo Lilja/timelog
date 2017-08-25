@@ -90,7 +90,7 @@ week_stats() {
     while IFS= read -r record; do
       day=$(echo "$record" | grep -o "\/$year-[0-9]\+-[0-9]\+" | sed 's#^\/##')
       dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | sed 's/^.\(.*\).$/\1/')
-      mil_time_for_day=$(echo "$record" | grep -o '\{[0-9]*:[0-9]*\}' | sed 's/^.\(.*\).$/\1/')
+      mil_time_for_day=$(echo "$record" | grep -o '{[0-9]*:[0-9]*}' | sed 's/^.\(.*\).$/\1/')
       day=$(wrap_date +%A "$day")
       day="$(tr '[:lower:]' '[:upper:]' <<< ${day:0:1})${day:1}"
       dec_time=$(awk "BEGIN {print ($dec_time+$dec_time_for_day)}") # Awk this because it can contain decimals.
@@ -184,7 +184,11 @@ wrap_date() {
     if [ ! -z "${2:+foo}" ]; then
         if date --version >/dev/null 2>&1; then
             # GNU DATE GOES HERE
-            [ ! -z "$1" ] && date "$1" -d "$2" || date -d "$2"
+            if [ ! -z "$1" ]; then
+                date "$1" -d "$2"
+            else
+                date -d "$2"
+            fi
         else
             # BSD DATE GOES HERE
             # if %Y-%m-%d %H:%M
