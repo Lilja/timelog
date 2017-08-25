@@ -22,6 +22,60 @@ $5
 END
 }
 
+wrap_date() {
+  # Output format=$1
+  # The data=$2
+  # Example GNU date: $( date "+%Y-%m-%d" -d "2017-01-01" ), where 1st quote is format and second is data
+
+  # If has data to input to `date`
+  if [ ! -z "${2:+foo}" ]; then
+    if date --version >/dev/null 2>&1; then
+      # GNU DATE GOES HERE
+      if [ ! -z "$1" ]; then
+          date "$1" -d "$2"
+      else
+          date -d "$2"
+      fi
+    else
+      # BSD DATE GOES HERE
+      # if %Y-%m-%d %H:%M
+      (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]\ [0-2][0-9]:[0-5][0-9]" >/dev/null 2>&1)
+      if [ $? -eq 0 ]; then
+        date -jf "%Y-%m-%d %H:%M" "$2" "$1"
+        exit 0
+      fi
+
+      # if %Y-%m-%d
+      (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]" >/dev/null 2>&1 )
+      if [ $? -eq 0 ]; then
+        date -jf "%Y-%m-%d" "$2" "$1"
+        exit 0
+      fi
+
+      # if has colon between %H and %M
+      (echo "$2" | grep "[0-2][0-9]:[0-5][0-9]" >/dev/null 2>&1 )
+      if [ $? -eq 0 ]; then
+        date -jf "%H:%M" "$2" "$1"
+        exit 0
+      fi
+
+      # if has no colon between %H and %M
+      (echo "$2" | grep "[0-2][0-9][0-5][0-9]" >/dev/null 2>&1 )
+      if [ $? -eq 0 ]; then
+        date -jf "%H%M" "$2" "$1"
+        exit 0
+      fi
+
+      # if reached this far, exits since the date is not supported
+      echo "0000-00-00 00:00:00"
+      exit 1
+   fi
+   else
+     # No data, BSD and GNU will work fine here, just do your $(date +%FORMAT) and it's fine!
+     date "$1"
+   fi
+ }
+
 logProjectTest() {
 timelog $debug --dev "$dir" log ts 0800 1800 0 >/dev/null <<END
 y
@@ -188,7 +242,7 @@ END
   assertTrue "A log entry was not created" "[ $amount_of_logs -eq 1 ]"
 
   dec_time=$(echo "$logs" | grep -o '\[2\]' | grep -o '2')
-  mil_time=$(echo "$logs" | grep -o '\{02:00\}' | grep -o '02:00')
+  mil_time=$(echo "$logs" | grep -o '{02:00}' | grep -o '02:00')
   assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
   assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
   deleteProject
@@ -242,7 +296,7 @@ END
 }
 
 testLogProjectWithNowAtEnd() {
-  now_one_hour_ago=$(date +%H%M -d "$(($(date +%k)-1))$(date +%M)") # %k beacuse %H sometimes prepend 0, can't do this math expr then `$((08-07))`
+  now_one_hour_ago=$(wrap_date "+%H%M" "$(($(date +%k)-1))$(date +%M)" )
   createProjectTest
 timelog $debug --dev "$dir" log ts >/dev/null <<END
 $now_one_hour_ago
@@ -257,7 +311,7 @@ END
   assertTrue "A log entry was not created" "[ $amount_of_logs -eq 1 ]"
 
   dec_time=$(echo "$logs" | grep -o '\[1\]' | grep -o '1')
-  mil_time=$(echo "$logs" | grep -o '\{01:00\}' | grep -o '01:00')
+  mil_time=$(echo "$logs" | grep -o '{01:00}' | grep -o '01:00')
   assertTrue "Decimal time was not 1" "[ $dec_time -eq 1 ]"
   assertTrue "HH:mm time was not 01:00. $logs" "[ $mil_time = '01:00' ]"
   deleteProject
@@ -287,14 +341,14 @@ END
   dayOneLogs=$(echo "$logs" | head -n1)
   dayTwoLogs=$(echo "$logs" | tail -n1)
   dec_time=$(echo "$dayOneLogs" | grep -o '\[2\]' | grep -o '2')
-  mil_time=$(echo "$dayOneLogs" | grep -o '\{02:00\}' | grep -o '02:00')
+  mil_time=$(echo "$dayOneLogs" | grep -o '{02:00}' | grep -o '02:00')
   dayOneDate=$(echo "$dayOneLogs" | grep -o "\/$day")
   assertTrue "Decimal time was not 2" "[ $dec_time -eq 2 ]"
   assertTrue "HH:mm time was not 02:00" "[ $mil_time = '02:00' ]"
   assertTrue "Custom date '$day' was not '$dayOneDate'" "[ '$dayOneDate' = '/$day' ]"
 
   dec_time=$(echo "$dayTwoLogs" | grep -o '\[3\]' | grep -o '3')
-  mil_time=$(echo "$dayTwoLogs" | grep -o '\{03:00\}' | grep -o '03:00')
+  mil_time=$(echo "$dayTwoLogs" | grep -o '{03:00}' | grep -o '03:00')
   dayTwoDate=$(echo "$dayTwoLogs" | grep -o "\/$nextDay")
   assertTrue "Decimal time was not 3" "[ $dec_time -eq 3 ]"
   assertTrue "HH:mm time was not 03:00" "[ $mil_time = '03:00' ]"
@@ -377,7 +431,7 @@ END
   logs=$(cat "$dir/Test.logs")
 
   dec_time=$(echo "$logs" | grep -o '\[[0-9]*\.*[0-9]*\]' | grep -o '[0-9]*\.[0-9]*')
-  mil_time=$(echo "$logs" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
+  mil_time=$(echo "$logs" | grep -o '{[0-9]*:[0-9]*}' | grep -o '[0-9]*:[0-9]*')
   assertTrue "Decimal time did not equal 8.8" "[ $dec_time = '8.8' ]"
   assertTrue "Decimal time did not equal 08:48" "[ $mil_time = '08:48' ]"
 
@@ -387,7 +441,8 @@ END
 testShowWeeklyLogs() {
   createProjectTest
   current_week=$(date +%V)
-  today=$(date +%A | sed 's/^\(.\)/\U\1/')
+  today=$(date +%A)
+  today="$(tr '[:lower:]' '[:upper:]' <<< ${today:0:1})${today:1}"
 timelog $debug --dev "$dir" log ts 0840 1802 34 >/dev/null << END
 y
 END
@@ -425,8 +480,11 @@ testShowWeeklyLogsWithUnorderedLogging() {
   createProjectTest
   mon="2017-08-14"
   tue="2017-08-15"
-  local_monday_name=$(date +%A -d "$mon" | sed 's/^\(.\)/\U\1/')
-  local_tuesday_name=$(date +%A -d "$tue" | sed 's/^\(.\)/\U\1/')
+  local_monday_name=$(wrap_date "+%A" "$mon")
+  local_monday_name="$(tr '[:lower:]' '[:upper:]' <<< ${local_monday_name:0:1})${local_monday_name:1}"
+  local_tuesday_name=$(wrap_date "+%A" "$tue")
+  local_tuesday_name="$(tr '[:lower:]' '[:upper:]' <<< ${local_tuesday_name:0:1})${local_tuesday_name:1}"
+
   week="33"
 timelog $debug --dev "$dir" log ts 0800 1600 0 --date "$tue" >/dev/null << END
 y
@@ -559,8 +617,10 @@ END
 testLogStart() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
 
-  now_in_one_hour=$(date +%H%M -d "$(($(date +%k)+1))$(date +%M)")
+  now_in_one_hour=$(wrap_date "+%H%M" "$(($(date +%k)+1))$(date +%M)")
+
   timelog $debug --dev "$dir" start ts1 >/dev/null
+  assertTrue "Timelog start did not return with exit code 0" $?
 
 timelog $debug --dev "$dir" log ts1 &>/dev/null << END
 $now_in_one_hour
@@ -600,11 +660,12 @@ testLogPauseAndBreak() {
   assertTrue "timelog pause did not return 0 $?" $?
   timelog $debug --dev "$dir" resume ts1 --date "$re_resumed" >/dev/null
   assertTrue "timelog resume did not return 0 $?" $?
+
   timelog $debug --dev "$dir" log ts1 --date "$ended" >/dev/null <<END
 13:55
 y
 END
-  assertTrue "timelog log did not return 0 $?" $?
+  assertTrue "timelog log did not return 0: $?" $?
 
   logs=$(timelog $debug --dev "$dir" view ts1 $week)
   remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
