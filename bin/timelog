@@ -89,9 +89,10 @@ week_stats() {
     echo "Days worked for week $week $year"
     while IFS= read -r record; do
       day=$(echo "$record" | grep -o "\/$year-[0-9]\+-[0-9]\+" | sed 's#^\/##')
-      dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | grep -o '[0-9]*\.*[0-9]*')
-      mil_time_for_day=$(echo "$record" | grep -o '\{[0-9]*:[0-9]*\}' | grep -o '[0-9]*:[0-9]*')
-      day=$(date -d "$day" +%A | sed  's/^\(.\)/\U\1/') # Sed regex converts first char to uppercase. monday=>Monday
+      dec_time_for_day=$(echo "$record" | grep -o '\[[0-9]\+\.*[0-9]*\]' | sed 's/^.\(.*\).$/\1/')
+      mil_time_for_day=$(echo "$record" | grep -o '\{[0-9]*:[0-9]*\}' | sed 's/^.\(.*\).$/\1/')
+      day=$(wrap_date +%A "$day")
+      day="$(tr '[:lower:]' '[:upper:]' <<< ${day:0:1})${day:1}"
       dec_time=$(awk "BEGIN {print ($dec_time+$dec_time_for_day)}") # Awk this because it can contain decimals.
 
       # grep: match \[ then everything that is not \] and a final \] at the very end of the string.
@@ -187,28 +188,28 @@ wrap_date() {
         else
             # BSD DATE GOES HERE
             # if %Y-%m-%d %H:%M
-            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]\ [0-2][0-9]:[0-5][0-9]")
+            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]\ [0-2][0-9]:[0-5][0-9]" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%Y-%m-%d %H:%M" "$2" "$1"
                 exit 0
             fi
 
             # if %Y-%m-%d
-            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]")
+            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%Y-%m-%d" "$2" "$1"
                 exit 0
             fi
 
             # if has colon between %H and %M
-            (echo "$2" | grep "[0-2][0-9]:[0-5][0-9]")
+            (echo "$2" | grep "[0-2][0-9]:[0-5][0-9]" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%H:%M" "$2" "$1"
                 exit 0
             fi
 
             # if has no colon between %H and %M
-            (echo "$2" | grep "[0-2][0-9][0-5][0-9]")
+            (echo "$2" | grep "[0-2][0-9][0-5][0-9]" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%H%M" "$2" "$1"
                 exit 0
@@ -1003,7 +1004,8 @@ fi
 # If the program requires a project
 if [ "$specify_project" != "n" ]; then
   # select max number from left most number in list projects
-  proj_amount=$(echo "$all_projects" | wc -l)
+  proj_amount=$(echo "$all_projects" | grep -o '^[0-9]' | sort -r | sed -n 1p)
+  proj_amount=${proj_amount:=0}
   if [ "$proj_amount" -ge 1 ]; then
     if [ "$proj_amount" -eq 1 ]; then
       logger_debug "Only one project created, getting it"
@@ -1114,6 +1116,7 @@ elif [ ! -z "$log_time" ]; then
   format="8, 800, 8.00, 8:00, 0800, 08.00, 08:00"
 
   # Read potential start time
+  logger_debug "Reading break time from disk. '$(read_start_time_for_disk "start")' minutes read"
   read_start_time=$(read_start_time_for_disk "start")
   if [ $? -ne 0 ]; then
     logger_debug "read_start_time_for_disk did get anything '$read_start_time'"
@@ -1121,7 +1124,7 @@ elif [ ! -z "$log_time" ]; then
   fi
 
   # Read potential pause/resumed time
-  logger_debug "Reading break time from disk. '$(read_start_time_for_disk "break")' minues read"
+  logger_debug "Reading break time from disk. '$(read_start_time_for_disk "break")' minutes read"
   read_break_time=$(read_start_time_for_disk "break")
   code=$?
   remind_of_break=0
