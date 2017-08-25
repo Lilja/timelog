@@ -560,7 +560,9 @@ testLogStart() {
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
 
   now_in_one_hour=$(date +%H%M -d "$(($(date +%k)+1))$(date +%M)")
+
   timelog $debug --dev "$dir" start ts1 >/dev/null
+  assertTrue "Timelog start did not return with exit code 0" $?
 
 timelog $debug --dev "$dir" log ts1 &>/dev/null << END
 $now_in_one_hour
@@ -600,11 +602,12 @@ testLogPauseAndBreak() {
   assertTrue "timelog pause did not return 0 $?" $?
   timelog $debug --dev "$dir" resume ts1 --date "$re_resumed" >/dev/null
   assertTrue "timelog resume did not return 0 $?" $?
+
   timelog $debug --dev "$dir" log ts1 --date "$ended" >/dev/null <<END
 13:55
 y
 END
-  assertTrue "timelog log did not return 0 $?" $?
+  assertTrue "timelog log did not return 0: $?" $?
 
   logs=$(timelog $debug --dev "$dir" view ts1 $week)
   remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')

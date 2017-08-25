@@ -175,15 +175,49 @@ save_time_to_disk() {
 }
 
 wrap_date() {
-    if [ ! -z "${1:+foo}" ]; then
+    # Output format=$1
+    # The data=$2
+    # Example GNU date: $( date "+%Y-%m-%d" -d "2017-01-01" ), where 1st quote is format and second is data
+
+    # If has data to input to `date`
+    if [ ! -z "${2:+foo}" ]; then
         if date --version >/dev/null 2>&1; then
-            date "$2" -d "$1"
+            # GNU DATE GOES HERE
+            [ ! -z "$1" ] && date "$1" -d "$2" || date -d "$2"
         else
+            # BSD DATE GOES HERE
+            # if %Y-%m-%d %H:%M
+            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]\ [0-2][0-9]:[0-5][0-9]")
+            [ $? -eq 0 ] && date -jf "%Y-%m-%d %H:%M" "$2" "$1"
+
+            # if %Y-%m-%d
+            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]")
+            [ $? -eq 0 ] && date -jf "%Y-%m-%d" "$2" "$1"
+
+            # if has colon between %H and %M
+            (echo "$2" | grep "[0-2][0-9]:[0-5][0-9]")
+            [ $? -eq 0 ] && date -jf "%H:%M" "$2" "$1"
+
+            # if has no colon between %H and %M
+            (echo "$2" | grep "[0-2][0-9][0-5][0-9]")
+            [ $? -eq 0 ] && date -jf "%H%M" "$2" "$1"
+
+            # if reached this far, exits since the date is not supported
+            echo "0000-00-00 00:00:00"
             exit 1
         fi
     else
-        date "$2"
+        # No data, BSD and GNU will work fine here, just do your $(date +%FORMAT) and it's fine!
+        date "$1"
     fi
+}
+
+two_timestamp_diff() {
+    # $1 > $2 so $1 is more recent than $2
+    ts1="$1"
+    ts2="$2"
+    diff_hh_mm=$(( ($(wrap_date "+%s" "$resume_ts") - $(wrap_date "+%s" "$pause_ts") )/(60)))
+    echo "$diff_hh_mm"
 }
 
 read_start_time_for_disk() {
@@ -214,8 +248,7 @@ read_start_time_for_disk() {
             resume=$(echo "$timestamps" | sed "${iterator}q;d")
             resume_ts=$(echo "$resume" | sed 's#.*;resume;##')
 
-            diff_hh_mm=$(( ($(date -d "$resume_ts" +%s) - $(date -d "$pause_ts" +%s) )/(60)))
-            echo "$diff_hh_mm"
+            two_timestamp_diff "$resume_ts" "$pause_ts"
             iterator=$((iterator+=1))
             pause=$(echo "$timestamps" | sed "${iterator}q;d")
         done | awk '{s+=$1} END {print s}'
@@ -233,7 +266,7 @@ read_start_time_for_disk() {
   else
     timestamp=$(grep "^$proj_name;$operation" "$log_path/saved_log_times" | tail -n1 | tr ';' '\n' | tail -n1)
     if [ ! -z "$timestamp" ]; then
-      wrap_date "$timestamp" "+%H%M"
+      wrap_date "+%H%M" "$timestamp"
     else
       exit 1
     fi
@@ -456,8 +489,8 @@ write_to_disk() {
   log_date_input=$7
   note_text=${8:-}
 
-  log_date=$(date +%Y-%m-%d -d "$log_date_input")
-  week_date=$(date +%G-%V-%u -d "$log_date_input")
+  log_date=$(wrap_date "+%Y-%m-%d" "$log_date_input")
+  week_date=$(wrap_date "+%G-%V-%u" "$log_date_input")
   proj_log_path=$(get_log_path_for_project "$project")
   entry="$week_date/$log_date [$dec_time]{$mil_time} ($start_time $end_time $break_min) [$note_text]"
   echo "$entry" >> "$proj_log_path"
@@ -579,12 +612,13 @@ calculate_time_with_parameters() {
   t1m="${1:3:5}"
   t2h="${2:0:2}"
   t2m="${2:3:5}"
-  t3m=$3
+  t3m="$3"
   project=$4
   log_date="$5"
   note=$6
 
   logger_debug "Date: '$log_date'"
+  logger_debug "Break time $3"
   if [ ! -z "${log_date:+foo}" ]; then
     logger_debug "Log date is set to something"
     if [ "$log_date" = "prompt" ]; then
@@ -593,7 +627,7 @@ calculate_time_with_parameters() {
       read -r log_date
     fi
 
-    (date -d "$log_date" 1>/dev/null 2>&1)
+    (wrap_date "" "$log_date" 1>/dev/null 2>&1)
     code=$?
     if [ $code -ne 0 ]; then
       logger_debug "Log date supplied was faulty. Did not follow a format that \`date\` understand"
@@ -771,20 +805,20 @@ while [ $# -ge 1 ]; do
     ;;
     --date)
       if [ ! -z "${3:+foo}" ]; then
-          logger_debug "Trying --date with two args"
-          (date -d "$2 $3" 1>/dev/null 2>&1)
+          logger_debug "Trying --date with two args ($2, $3)"
+          (wrap_date "" "$2 $3" 1>/dev/null 2>&1)
           code=$?
           if [ $code -ne 0 ]; then
-            logger_debug "Two arguments did not work out, falling back to one argument"
-            (date -d "$2" 1>/dev/null 2>&1)
+            logger_debug "Two arguments did not work out, falling back to one argument($2)"
+            (wrap_date "" "$2" 1>/dev/null 2>&1)
             code=$?
           fi
       elif [ ! -z "${2:+foo}" ]; then
-            logger_debug "Trying --date with one arg"
-            (date -d "$2" 1>/dev/null 2>&1)
+            logger_debug "Trying --date with one arg($2)"
+            (wrap_date "" "$2" 1>/dev/null 2>&1)
             code=$?
       else
-            logger_debug "$2 and $3 is not set, the user will prompt for date."
+            logger_debug "\$2 and \$3 is not set, the user will prompt for date."
             code=1
       fi
 
@@ -1014,19 +1048,19 @@ fi
 #############################################################
 if [ ! -z "$log_paused_time" ]; then
   logger_debug "About to store date from now to disk [pause]"
-  now=$(wrap_date "$log_date" "+%Y-%m-%d %H:%M")
+  now=$(wrap_date "+%Y-%m-%d %H:%M" "$log_date")
   save_time_to_disk "pause" "$now"
 fi
 
 if [ ! -z "$log_resumed_time" ]; then
   logger_debug "About to store date from now to disk [resume]"
-  now=$(wrap_date "$log_date" "+%Y-%m-%d %H:%M")
+  now=$(wrap_date "+%Y-%m-%d %H:%M" "$log_date")
   save_time_to_disk "resume" "$now"
 fi
 
 if [ ! -z "$log_start_time" ]; then
   logger_debug "About to store date from now to disk [start]"
-  now=$(wrap_date "$log_date" "+%Y-%m-%d %H:%M")
+  now=$(wrap_date "+%Y-%m-%d %H:%M" "$log_date")
   save_time_to_disk "start" "$now"
 fi
 
@@ -1075,10 +1109,12 @@ elif [ ! -z "$log_time" ]; then
   fi
 
   # Read potential pause/resumed time
+  logger_debug "Reading break time from disk. '$(read_start_time_for_disk "break")' minues read"
   read_break_time=$(read_start_time_for_disk "break")
   code=$?
   remind_of_break=0
   if [ $code -eq 3 ]; then
+    logger_debug "Will remind user later of unequal pause/resume"
     remind_of_break=1
   elif [ $code -ne 0 ]; then
     logger_debug "read_start_time_for_disk did get anything '$read_break_time'"
@@ -1125,7 +1161,7 @@ elif [ ! -z "$log_time" ]; then
   fi
 
   if [ ! -z "${maybeBreak:+foo}" ]; then
-    logger_debug "'$maybeBreak' was a valid number"
+    logger_debug "'$maybeBreak'(from CLI args) was a valid number"
     break_time=$maybeBreak
   elif [ ! -z "$read_break_time" ]; then
     if [ "$remind_of_break" -eq 1 ]; then
