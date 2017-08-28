@@ -32,9 +32,11 @@ script:
   - pushd test/
   - ./unittest.sh
   - popd
-  - ./runMetrics.sh $KCOV_IMMG
-  - cd metrics
-  - bash <(curl -s https://codecov.io/bash)
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ./runMetrics.sh $KCOV_IMMG; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cd metrics; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then bash <(curl -s https://codecov.io/bash); fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ./test/mac_kcov.sh; fi
 
 before_cache:
   - docker save $KCOV_IMG -o "$HOME/docker/kcov"
