@@ -46,7 +46,9 @@ date() {
 }
 
 dir="$PWD/dev"
-rm -r "$dir"
+if [ -d "$dir" ]; then
+  rm -r "$dir"
+fi
 mkdir -p "$dir"
 
 testOnBSDDateMock() {
@@ -87,6 +89,70 @@ END
 
   grep -q "\[2\]" dev/Test1.logs
   assertTrue "Logs did not have [2] field." "[ $? -eq 0 ]"
+
+  (. timelog --dev "$dir" project delete >/dev/null 2>&1 << END
+1
+y
+END
+)
+  assertTrue "Exit code of project delete with bsd mock was not 0" "[ $? -eq 0 ]"
+}
+
+testDifferentBSDDateFormats() {
+  (. timelog --dev "$dir" project create 2>&1 >/dev/null <<END
+Test1
+ts1
+40
+140
+kr
+END
+)
+  assertTrue "Exit code of create project with bsd mock was not 0" "[ $? -eq 0 ]"
+
+  (. timelog --dev "$dir" start --date "12:00" 2>&1 >/dev/null)
+  assertTrue "Exit code of start with bsd mock was not 0" "[ $? -eq 0 ]"
+
+  (. timelog --dev "$dir" pause --date "13:00" 2>&1 >/dev/null)
+  assertTrue "Exit code of pause with bsd mock was not 0" "[ $? -eq 0 ]"
+
+  (. timelog --dev "$dir" resume --date "1400" 2>&1 >/dev/null)
+  assertTrue "Exit code of resume with bsd mock was not 0" "[ $? -eq 0 ]"
+
+  (. timelog --dev "$dir" log 2>&1 >/dev/null << END
+15:00
+y
+END
+)
+  assertTrue "Exit code of log with bsd mock was not 0" "[ $? -eq 0 ]"
+
+  grep -q "\[1\]" dev/Test1.logs
+  assertTrue "Logs did not have [1] field." "[ $? -eq 0 ]"
+
+  (. timelog --dev "$dir" project delete >/dev/null 2>&1<< END
+1
+y
+END
+)
+  assertTrue "Exit code of project delete with bsd mock was not 0" "[ $? -eq 0 ]"
+}
+
+testFaultyBSDDateFormat() {
+  (. timelog --dev "$dir" project create 2>&1 >/dev/null <<END
+Test1
+ts1
+40
+140
+kr
+END
+)
+  (. timelog  --dev "$dir" start --date "1231+203i10293u1203912" >/dev/null)
+  assertTrue "Using a faulty --date with mocked \`date\` did not exit properly" "[ $? -ne 0 ]"
+
+  (. timelog --dev "$dir" project delete >/dev/null 2>&1<< END
+1
+y
+END
+)
 }
 
 . shunit2-2.1.6/src/shunit2

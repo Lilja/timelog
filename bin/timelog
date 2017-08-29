@@ -192,28 +192,28 @@ wrap_date() {
         else
             # BSD DATE GOES HERE
             # if %Y-%m-%d %H:%M
-            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]\ [0-2][0-9]:[0-5][0-9]" >/dev/null 2>&1)
+            (echo "$2" | grep "^[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]\ [0-2][0-9]:[0-5][0-9]$" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%Y-%m-%d %H:%M" "$2" "$1"
                 exit 0
             fi
 
             # if %Y-%m-%d
-            (echo "$2" | grep "[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]" >/dev/null 2>&1)
+            (echo "$2" | grep "^[0-9]\{4\}-[0-1][0-9]-[0-3][0-9]$" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%Y-%m-%d" "$2" "$1"
                 exit 0
             fi
 
             # if has colon between %H and %M
-            (echo "$2" | grep "[0-2][0-9]:[0-5][0-9]" >/dev/null 2>&1)
+            (echo "$2" | grep "^[0-2][0-9]:[0-5][0-9]$" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%H:%M" "$2" "$1"
                 exit 0
             fi
 
             # if has no colon between %H and %M
-            (echo "$2" | grep "[0-2][0-9][0-5][0-9]" >/dev/null 2>&1)
+            (echo "$2" | grep "^[0-2][0-9][0-5][0-9]$" >/dev/null 2>&1)
             if [ $? -eq 0 ]; then
                 date -jf "%H%M" "$2" "$1"
                 exit 0
@@ -653,7 +653,7 @@ calculate_time_with_parameters() {
     fi
   else
     logger_debug "Log date was not supplied at all. Set to now."
-    log_date=$(date +%Y-%m-%d)
+    log_date=$(wrap_date +%Y-%m-%d)
   fi
 
   if [ ! -z "${note:+foo}" ]; then
@@ -823,16 +823,16 @@ while [ $# -ge 1 ]; do
     --date)
       if [ ! -z "${3:+foo}" ]; then
           logger_debug "Trying --date with two args ($2, $3)"
-          (wrap_date "" "$2 $3" 1>/dev/null 2>&1)
+          (wrap_date "+%A" "$2 $3" 1>/dev/null 2>&1)
           code=$?
           if [ $code -ne 0 ]; then
             logger_debug "Two arguments did not work out, falling back to one argument($2)"
-            (wrap_date "" "$2" 1>/dev/null 2>&1)
+            (wrap_date "+%A" "$2" 1>/dev/null 2>&1)
             code=$?
           fi
       elif [ ! -z "${2:+foo}" ]; then
             logger_debug "Trying --date with one arg($2)"
-            (wrap_date "" "$2" 1>/dev/null 2>&1)
+            (wrap_date "+%A" "$2" >/dev/null 2>&1)
             code=$?
       else
             logger_debug "\$2 and \$3 is not set, the user will prompt for date."
@@ -1099,7 +1099,7 @@ if [ ! -z "$delete_project" ]; then
 elif [ ! -z "$show_logs" ]; then
   if [ -z "$raw_logs" ]; then
     if [ -z "$show_logs_week" ]; then
-      echo "For what week? Current week is $(date +%V)"
+      echo "For what week? Current week is $(wrap_date +%V)"
       read week
       show_logs_week=$week
     fi
@@ -1108,7 +1108,7 @@ elif [ ! -z "$show_logs" ]; then
     if [ ! -z "$proj_name" ]; then
       get_project_meta_info "$proj_name"
       logger_debug "Showing logs for $proj_name given week $show_logs_week"
-      if [ -z "$year" ]; then year=$(date +%Y); fi
+      if [ -z "$year" ]; then year=$(wrap_date +%Y); fi
       week_stats "$(cat "$log_path/$proj_name.logs")" "$show_logs_week" "$year"
     fi
   else
@@ -1175,7 +1175,7 @@ elif [ ! -z "$log_time" ]; then
     (test_timestamp "$parsed_end_timestamp")
     code=$?
     if [ -z "$end_timestamp" ]; then
-      parsed_end_timestamp=$(parse_timestamp "$(date +%H%M)")
+      parsed_end_timestamp=$(parse_timestamp "$(wrap_date +%H%M "$log_date")")
     elif [ $code -ne 0 ]; then
       logger_debug "Entered '$end_timestamp' as a end time"
       echo "'$end_timestamp' does not follow the format '$format'"

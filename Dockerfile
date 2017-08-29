@@ -33,6 +33,7 @@ ENV PS4=+
 WORKDIR /tmp
 
 # Run and only include bin/timelog
-RUN kcov /tmp/cov/ /tmp/timelog/test/unittest.sh
-RUN kcov /tmp/cov/ /tmp/timelog/test/bsd_date_mock.sh
+RUN kcov --include-pattern=/tmp/timelog/bin/timelog /tmp/cov/ /tmp/timelog/test/unittest.sh
+# Run with BSD stub
+RUN kcov --include-pattern=/tmp/timelog/bin/timelog /tmp/cov/ /tmp/timelog/test/bsd_date_mock.sh
 RUN ls /tmp/cov
