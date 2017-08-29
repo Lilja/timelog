@@ -8,10 +8,12 @@ RUN mkdir /tmp/timelog/test
 RUN mkdir /tmp/timelog/bin
 
 COPY test/unittest.sh /tmp/timelog/test/unittest.sh
+COPY test/bsd_date_mock.sh /tmp/timelog/test/bsd_date_mock.sh
 COPY test/test_dep.sh /tmp/timelog/test/test_dep.sh
 COPY bin/timelog /tmp/timelog/bin/timelog
 
 RUN chmod +x /tmp/timelog/test/unittest.sh
+RUN chmod +x /tmp/timelog/test/bsd_date_mock.sh
 RUN chmod +x /tmp/timelog/test/test_dep.sh
 RUN chmod +x /tmp/timelog/bin/timelog
 
@@ -31,4 +33,6 @@ ENV PS4=+
 WORKDIR /tmp
 
 # Run and only include bin/timelog
-RUN kcov --include-path=/tmp/timelog/bin/timelog /tmp/cov/ /tmp/timelog/test/unittest.sh
+RUN kcov /tmp/cov/ /tmp/timelog/test/unittest.sh
+RUN kcov /tmp/cov/ /tmp/timelog/test/bsd_date_mock.sh
+RUN ls /tmp/cov

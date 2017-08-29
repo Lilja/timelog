@@ -104,7 +104,7 @@ END
 }
 
 testHasTimelogBinary() {
-  k=$(which timelog 2>&1 >/dev/null ; echo $?)
+  k=$(timelog 2>&1 >/dev/null ; echo $?)
   assertTrue "Timelog binary was not found" "[ $k -eq 0 ]"
 }
 
@@ -891,7 +891,6 @@ testDebugMode() {
   deleteProject
 }
 
-
 testPurge() {
   createProjectTest
   logProjectTest
@@ -901,8 +900,8 @@ END
   assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
 }
 
-
 . shunit2-2.1.6/src/shunit2
+
 end=$(date +%s)
 diff=$((end-start))
 minutes=$((diff/60%60))

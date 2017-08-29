@@ -182,7 +182,7 @@ wrap_date() {
 
     # If has data to input to `date`
     if [ ! -z "${2:+foo}" ]; then
-        if date --version >/dev/null 2>&1; then
+        if (date --version >/dev/null 2>&1); then
             # GNU DATE GOES HERE
             if [ ! -z "$1" ]; then
                 date "$1" -d "$2"
@@ -644,7 +644,7 @@ calculate_time_with_parameters() {
       read -r log_date
     fi
 
-    (wrap_date "" "$log_date" 1>/dev/null 2>&1)
+    (wrap_date "+%A" "$log_date" 1>/dev/null 2>&1)
     code=$?
     if [ $code -ne 0 ]; then
       logger_debug "Log date supplied was faulty. Did not follow a format that \`date\` understand"
@@ -964,6 +964,10 @@ while [ $# -ge 1 ]; do
       echo "$(basename "$0") $VERSION"
       exit 0
     ;;
+    --idi)
+      echo "nahoy"
+      shift
+    ;;
     *)
       logger_debug "About to call usage '$1'"
       echo "Unknown argument '$1'"
@@ -1120,7 +1124,7 @@ elif [ ! -z "$log_time" ]; then
   format="8, 800, 8.00, 8:00, 0800, 08.00, 08:00"
 
   # Read potential start time
-  logger_debug "Reading break time from disk. '$(read_start_time_for_disk "start")' minutes read"
+  logger_debug "Reading start time from disk. '$(read_start_time_for_disk "start")' minutes read"
   read_start_time=$(read_start_time_for_disk "start")
   if [ $? -ne 0 ]; then
     logger_debug "read_start_time_for_disk did get anything '$read_start_time'"

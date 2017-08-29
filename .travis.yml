@@ -20,9 +20,10 @@ before_install:
 
 before_script:
   - chmod +x test/unittest.sh
+  - chmod +x test/bsd_date_mock.sh
   - chmod +x bin/timelog
   - chmod +x test/test_dep.sh
-  - export PATH=$PATH:$PWD/bin/
+  - export PATH=$PATH:$PWD/bin
   - pushd test/
   - ./test_dep.sh
   - popd
@@ -31,6 +32,7 @@ script:
   - export PATH=$PATH:$PWD/bin/
   - pushd test/
   - ./unittest.sh
+  - ./bsd_date_mock.sh
   - popd
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ./runMetrics.sh $KCOV_IMMG; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cd metrics; fi
