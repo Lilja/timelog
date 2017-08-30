@@ -71,13 +71,13 @@ END
   (. timelog --dev "$dir" resume --date "2017-01-01 14:00" 2>&1 >/dev/null)
   assertTrue "Exit code of resume with bsd mock was not 0" "[ $? -eq 0 ]"
 
-  cat "$dir/saved_log_times" | grep -q "Test1;start;2017-01-01 12:00"
+  grep -q "Test1;start;2017-01-01 12:00" "$dir/saved_log_times"
   assertTrue "Saved log entries did not have start with timestamp" "[ $? -eq 0 ]"
 
-  cat "$dir/saved_log_times" | grep -q "Test1;pause;2017-01-01 13:00"
+  grep -q "Test1;pause;2017-01-01 13:00" "$dir/saved_log_times"
   assertTrue "Saved log entries did not have pause with timestamp" "[ $? -eq 0 ]"
 
-  cat "$dir/saved_log_times" | grep -q "Test1;resume;2017-01-01 14:00"
+  grep -q "Test1;resume;2017-01-01 14:00" "$dir/saved_log_times"
   assertTrue "Saved log entries did not have resume with timestamp" "[ $? -eq 0 ]"
 
   (. timelog --dev "$dir" log 2>&1 >/dev/null << END
