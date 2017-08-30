@@ -16,6 +16,7 @@ The purpose of this tool is to have a terminal friendly tool that can easily tra
 This new repository with a full re-write has more tools and support to log multiple different projects.
 ### Demo
 ![ttygif](demo.gif)
+
 This gif shows a simple demonstration that creates a project, logs the time between 08:00-16:00 with 45 minutes of break time, logs time for yesterday with similar times and finally shows a weekly report that shows various statistics.
 
 Created with [ttygif](https://github.com/icholy/ttygif)
@@ -45,6 +46,8 @@ Usage: timelog
    - list
    - delete
  - start (project_id)
+ - pause (project_id)
+ - resume (project_id)
  - calc start time, end time, break time
  - --help
  - --version
@@ -90,6 +93,18 @@ to calculate a period between start time, end time and break time
 
 to purge or remove all configuration and logs made
 
+`timelog start`
+
+to save the time right now as start time
+
+`timelog pause`
+
+to save the time right now as break time.
+
+`timelog resume`
+
+to save the time right now as the work time is now continued.
+
 ### Dependecies
 `sed` tested with `4.4`
 
@@ -104,10 +119,6 @@ to purge or remove all configuration and logs made
 `cut` tested with `8.26`
 
 `tr` tested with `8.26`
-
-
-shell that can execute `[[ ]]` if-statements
-
 
 
 ### Examples
@@ -254,6 +265,24 @@ First, checks if `xdg-open` is a command. If so, will run it. Otherwise, it will
 `timelog start (project_id)`
 
 `start` is a keyword.
+
+`project id` Optional/prompted. Is an ID that was specified during the creation.
+
+Writes the time down onto the filesystem and is later read when logging.
+
+##### Set pause time for log
+`timelog pause (project_id)`
+
+`pause` is a keyword.
+
+`project id` Optional/prompted. Is an ID that was specified during the creation.
+
+Writes the time down onto the filesystem and is later read when logging.
+
+##### Set resume time for log
+`timelog resume (project_id)`
+
+`resume` is a keyword.
 
 `project id` Optional/prompted. Is an ID that was specified during the creation.
 

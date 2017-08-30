@@ -7,7 +7,7 @@ log_path="$HOME/.config/timelogs"
 log_level=0
 
 # Version
-VERSION="0.4.1"
+VERSION="0.6.0"
 
 # A phrase to type out to purge the logs/configuration..
 PURGE_PHRASE="timelog"
