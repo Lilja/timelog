@@ -12,6 +12,10 @@ dir="$PWD/dev"
 # Create test directory
 mkdir "$dir"
 
+tearDown() {
+  if [ -f "$dir/saved_log_times" ]; then rm "$dir/saved_log_times"; fi
+}
+
 createProjectWithParams() {
 timelog $debug --dev "$dir" project create &>/dev/null <<END
 $1
@@ -104,15 +108,11 @@ END
 }
 
 testHasTimelogBinary() {
-  k=$(which timelog 2>&1 >/dev/null ; echo $?)
+  k=$(timelog 2>&1 >/dev/null ; echo $?)
   assertTrue "Timelog binary was not found" "[ $k -eq 0 ]"
 }
 
-testWhenEmptyProjectInitally() {
-  output=$(timelog --dev "$dir" project list_id >/dev/null)
-  assertTrue "When no project have been created, there are projects created with project list_id" "[ -z '$output' ]"
-  if [ ! -z "$output" ]; then exit 1; fi
-}
+
 
 testVersion() {
   output=$(timelog $debug --dev "$dir" --version | grep -o '[0-9]\.[0-9]\.[0-9]')
@@ -223,6 +223,12 @@ testListProjectsWithNoCreatedProjects() {
   assertTrue "Listing projects with no created project did not return an exit code of 1" "[ $code -eq 1 ]"
 }
 
+testLogWhenEmptyProjectInitally() {
+  output=$(timelog --dev "$dir" project list_id >/dev/null)
+  assertTrue "When no project have been created, there are projects created with project list_id" "[ -z '$output' ]"
+  if [ ! -z "$output" ]; then exit 1; fi
+}
+
 testLogProject() {
   createProjectTest
 timelog $debug --dev "$dir" log ts 0800 1000 0 >/dev/null <<END
@@ -296,10 +302,13 @@ END
 }
 
 testLogProjectWithNowAtEnd() {
-  now_one_hour_ago=$(wrap_date "+%H%M" "$(($(date +%k)-1))$(date +%M)" )
+  # Fake that current time is 14:00 and the start time is 1300
+  # Purposly put a enter in the log interactive so that it gets the "current" timestamp.
+  start_time="1300"
+  end_time="2017-01-01 14:00"
   createProjectTest
-timelog $debug --dev "$dir" log ts >/dev/null <<END
-$now_one_hour_ago
+timelog $debug --dev "$dir" log ts --date "$end_time" >/dev/null <<END
+$start_time
 
 0
 y
@@ -435,6 +444,149 @@ END
   assertTrue "Decimal time did not equal 8.8" "[ $dec_time = '8.8' ]"
   assertTrue "Decimal time did not equal 08:48" "[ $mil_time = '08:48' ]"
 
+  deleteProject
+}
+
+testLogStart() {
+  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
+
+  now_in_one_hour=1500
+
+  timelog $debug --dev "$dir" start ts1 --date "2017-01-01 14:00">/dev/null
+  assertTrue "Timelog start did not return with exit code 0" $?
+
+timelog $debug --dev "$dir" log ts1 &>/dev/null << END
+$now_in_one_hour
+0
+y
+END
+
+  logs=$(timelog $debug --dev "$dir" view ts1 $(date +%V))
+  remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
+  worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
+  assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
+  assertTrue "Worked hours was not 1" "[ ! -z '$worked_hours' ]"
+
+  deleteProject
+}
+
+testLogPauseAndBreak() {
+  # Log: 12:00 - 12:30(30 min), 13:15-13-20(5 min), 13:30-13:55(25 min) = 1h
+  # Break: 12:30-13:15(45 min), 13:20-13:30(10 min)
+  started="2017-01-02 12:00"
+  paused="2017-01-02 12:30"
+  resumed="2017-01-02 13:15"
+  re_paused="2017-01-02 13:20"
+  re_resumed="2017-01-02 13:30"
+  ended="2017-01-02 14:00"
+  week=1
+
+  assertTrue "Saved log times file exists, it shouldn't because of tearDown()" "[ ! -f "$dir/saved_log_times" ]"
+  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
+
+  timelog $debug --dev "$dir" start ts1 --date "$started" >/dev/null
+  assertTrue "timelog start did not return 0 $?" $?
+  timelog $debug --dev "$dir" pause ts1 --date "$paused" >/dev/null
+  assertTrue "timelog pause did not return 0 $?" $?
+  timelog $debug --dev "$dir" resume ts1 --date "$resumed" >/dev/null
+  assertTrue "timelog resume did not return 0 $?" $?
+  timelog $debug --dev "$dir" pause ts1 --date "$re_paused" >/dev/null
+  assertTrue "timelog pause did not return 0 $?" $?
+  timelog $debug --dev "$dir" resume ts1 --date "$re_resumed" >/dev/null
+  assertTrue "timelog resume did not return 0 $?" $?
+
+  timelog $debug --dev "$dir" log ts1 --date "$ended" >/dev/null <<END
+13:55
+y
+END
+  assertTrue "timelog log did not return 0: $?" $?
+
+  logs=$(timelog $debug --dev "$dir" view ts1 $week)
+  remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
+  worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
+  assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
+  assertTrue "Worked hours was not 1" "[ ! -z '$worked_hours' ]"
+
+  deleteProject
+}
+
+testLogPauseAndBreakNotify() {
+  started="2017-01-02 12:00"
+  paused="2017-01-02 12:30"
+  resumed="2017-01-02 13:15"
+  re_paused="2017-01-02 13:20"
+  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
+  timelog $debug --dev "$dir" pause ts1 --date "$paused" >/dev/null
+  assertTrue "timelog pause did not return 0 $?" $?
+  timelog $debug --dev "$dir" resume ts1 --date "$resumed" >/dev/null
+  assertTrue "timelog resume did not return 0 $?" $?
+  timelog $debug --dev "$dir" pause ts1 --date "$re_paused" >/dev/null
+
+  timelog $debug --dev "$dir" log ts1 << END | grep -q "NOTE: There is an uneven amount of"
+08:00
+12:00
+y
+END
+  assertTrue "timelog log with pause that did not resume did not output the expected text" $?
+
+  deleteProject
+}
+
+testLogWithNote() {
+  createProjectTest
+  current_week=$(date +%V)
+  note="Bash stuff, meeting at 9."
+timelog $debug --dev "$dir" log ts >/dev/null << END
+08:00
+12:00
+0
+y
+END
+  assertTrue "The exit code of log creation without --note opt was not 0" "[ $? -eq 0 ]"
+
+  output=$(timelog $debug --dev "$dir" view ts "$current_week")
+  assertTrue "The exit code of view was not 0" "[ $? -eq 0 ]"
+
+  # A day should display: "day: 4h / 04:00 " Notice the space at the end.
+  # If a log entry with no --note, there should not be any more stuff beside what's listed above.
+  end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
+  assertTrue "When creating a log entry with no note, note text was inserted " "[ ! -z '$end_of_day_line' ]"
+
+timelog $debug --dev "$dir" log ts --note  >/dev/null << END
+08:00
+12:00
+0
+$note
+y
+END
+  assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
+
+  output=$(timelog $debug --dev "$dir" view ts "$current_week")
+  assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
+
+  log_note=$(echo "$output" | grep -o "$note")
+  assertTrue "A note entry was not found when showing logs" "[ '$log_note' = '$note' ]"
+  deleteProject
+}
+
+testLogNoteWithEmptyNote() {
+  createProjectTest
+  current_week=$(date +%V)
+  note="Bash stuff, meeting at 9."
+timelog --dev "$dir" log ts --note >/dev/null << END
+08:00
+12:00
+0
+
+y
+END
+  assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
+
+  output=$(timelog $debug --dev "$dir" view ts "$current_week")
+  assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
+
+  end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
+  assertTrue "A note entry was found when showing logs" "[ ! -z '$end_of_day_line' ]"
   deleteProject
 }
 
@@ -614,148 +766,6 @@ END
   deleteProject
 }
 
-testLogStart() {
-  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
-
-  now_in_one_hour=$(wrap_date "+%H%M" "$(($(date +%k)+1))$(date +%M)")
-
-  timelog $debug --dev "$dir" start ts1 >/dev/null
-  assertTrue "Timelog start did not return with exit code 0" $?
-
-timelog $debug --dev "$dir" log ts1 &>/dev/null << END
-$now_in_one_hour
-0
-y
-END
-
-  logs=$(timelog $debug --dev "$dir" view ts1 $(date +%V))
-  remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
-  worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
-  assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
-  assertTrue "Worked hours was not 1" "[ ! -z '$worked_hours' ]"
-
-  deleteProject
-}
-
-testLogPauseAndBreak() {
-  # Log: 12:00 - 12:30(30 min), 13:15-13-20(5 min), 13:30-13:55(25 min) = 1h
-  # Break: 12:30-13:15(45 min), 13:20-13:30(10 min)
-  started="2017-01-02 12:00"
-  paused="2017-01-02 12:30"
-  resumed="2017-01-02 13:15"
-  re_paused="2017-01-02 13:20"
-  re_resumed="2017-01-02 13:30"
-  ended="2017-01-02 14:00"
-  week=1
-
-  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
-
-  timelog $debug --dev "$dir" start ts1 --date "$started" >/dev/null
-  assertTrue "timelog start did not return 0 $?" $?
-  timelog $debug --dev "$dir" pause ts1 --date "$paused" >/dev/null
-  assertTrue "timelog pause did not return 0 $?" $?
-  timelog $debug --dev "$dir" resume ts1 --date "$resumed" >/dev/null
-  assertTrue "timelog resume did not return 0 $?" $?
-  timelog $debug --dev "$dir" pause ts1 --date "$re_paused" >/dev/null
-  assertTrue "timelog pause did not return 0 $?" $?
-  timelog $debug --dev "$dir" resume ts1 --date "$re_resumed" >/dev/null
-  assertTrue "timelog resume did not return 0 $?" $?
-
-  timelog $debug --dev "$dir" log ts1 --date "$ended" >/dev/null <<END
-13:55
-y
-END
-  assertTrue "timelog log did not return 0: $?" $?
-
-  logs=$(timelog $debug --dev "$dir" view ts1 $week)
-  remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
-  worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
-  assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
-  assertTrue "Worked hours was not 1" "[ ! -z '$worked_hours' ]"
-
-  deleteProject
-}
-
-testLogPauseAndBreakNotify() {
-  started="2017-01-02 12:00"
-  paused="2017-01-02 12:30"
-  resumed="2017-01-02 13:15"
-  re_paused="2017-01-02 13:20"
-  createProjectWithParams "Test1" "ts1" "40" "140" "kr"
-  timelog $debug --dev "$dir" pause ts1 --date "$paused" >/dev/null
-  assertTrue "timelog pause did not return 0 $?" $?
-  timelog $debug --dev "$dir" resume ts1 --date "$resumed" >/dev/null
-  assertTrue "timelog resume did not return 0 $?" $?
-  timelog $debug --dev "$dir" pause ts1 --date "$re_paused" >/dev/null
-
-  timelog $debug --dev "$dir" log ts1 << END | grep -q "NOTE: There is an uneven amount of"
-08:00
-12:00
-y
-END
-  assertTrue "timelog log with pause that did not resume did not output the expected text" $?
-
-  deleteProject
-}
-
-testLogWithNote() {
-  createProjectTest
-  current_week=$(date +%V)
-  note="Bash stuff, meeting at 9."
-timelog $debug --dev "$dir" log ts >/dev/null << END
-08:00
-12:00
-0
-y
-END
-  assertTrue "The exit code of log creation without --note opt was not 0" "[ $? -eq 0 ]"
-
-  output=$(timelog $debug --dev "$dir" view ts "$current_week")
-  assertTrue "The exit code of view was not 0" "[ $? -eq 0 ]"
-
-  # A day should display: "day: 4h / 04:00 " Notice the space at the end.
-  # If a log entry with no --note, there should not be any more stuff beside what's listed above.
-  end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
-  assertTrue "When creating a log entry with no note, note text was inserted " "[ ! -z '$end_of_day_line' ]"
-
-timelog $debug --dev "$dir" log ts --note  >/dev/null << END
-08:00
-12:00
-0
-$note
-y
-END
-  assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
-
-  output=$(timelog $debug --dev "$dir" view ts "$current_week")
-  assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
-
-  log_note=$(echo "$output" | grep -o "$note")
-  assertTrue "A note entry was not found when showing logs" "[ '$log_note' = '$note' ]"
-  deleteProject
-}
-
-testLogNoteWithEmptyNote() {
-  createProjectTest
-  current_week=$(date +%V)
-  note="Bash stuff, meeting at 9."
-timelog --dev "$dir" log ts --note >/dev/null << END
-08:00
-12:00
-0
-
-y
-END
-  assertTrue "The exit code of log creation was not 0" "[ $? -eq 0 ]"
-
-  output=$(timelog $debug --dev "$dir" view ts "$current_week")
-  assertTrue "The exit code of log entry was not 0" "[ $? -eq 0 ]"
-
-  end_of_day_line=$(echo "$output" | grep -o "04:00\ $")
-  assertTrue "A note entry was found when showing logs" "[ ! -z '$end_of_day_line' ]"
-  deleteProject
-}
-
 testDifferentInputFormats() {
   createProjectTest
   rgx="Decimal time: 2 Military time: 02:00"
@@ -891,7 +901,6 @@ testDebugMode() {
   deleteProject
 }
 
-
 testPurge() {
   createProjectTest
   logProjectTest
@@ -901,8 +910,8 @@ END
   assertTrue "No log folder was deleted when purging" "[ ! -d '$dir' ]"
 }
 
-
 . shunit2-2.1.6/src/shunit2
+
 end=$(date +%s)
 diff=$((end-start))
 minutes=$((diff/60%60))
