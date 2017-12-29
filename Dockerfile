@@ -1,7 +1,9 @@
 FROM ragnaroek/kcov:v33
 MAINTAINER Erik Lilja <6134511+Lilja@users.noreply.github.com>
 
-RUN apt-get install -y --no-install-recommends curl
+RUN apt-get update && \
+      apt-get install -y --no-install-recommends curl && \
+      rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /tmp/timelog
 RUN mkdir /tmp/timelog/test
