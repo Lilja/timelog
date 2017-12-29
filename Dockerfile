@@ -1,6 +1,7 @@
 FROM ragnaroek/kcov:v33
 MAINTAINER Erik Lilja <6134511+Lilja@users.noreply.github.com>
 
+RUN apt-get update
 RUN apt-get install -y --no-install-recommends curl
 
 RUN mkdir /tmp/timelog
