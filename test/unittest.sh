@@ -479,21 +479,28 @@ testLogPauseAndBreak() {
   re_paused="2017-01-02 13:20"
   re_resumed="2017-01-02 13:30"
   ended="2017-01-02 14:00"
+  year=2017
   week=1
 
   assertTrue "Saved log times file exists, it shouldn't because of tearDown()" "[ ! -f "$dir/saved_log_times" ]"
   createProjectWithParams "Test1" "ts1" "40" "140" "kr"
 
-  timelog $debug --dev "$dir" start ts1 --date "$started" >/dev/null
+
+  timelog $debug --dev "$dir" start ts1 --date "$started"
   assertTrue "timelog start did not return 0 $?" $?
-  timelog $debug --dev "$dir" pause ts1 --date "$paused" >/dev/null
+
+  timelog $debug --dev "$dir" pause ts1 --date "$paused"
   assertTrue "timelog pause did not return 0 $?" $?
-  timelog $debug --dev "$dir" resume ts1 --date "$resumed" >/dev/null
+
+  timelog $debug --dev "$dir" resume ts1 --date "$resumed"
   assertTrue "timelog resume did not return 0 $?" $?
-  timelog $debug --dev "$dir" pause ts1 --date "$re_paused" >/dev/null
+
+  timelog $debug --dev "$dir" pause ts1 --date "$re_paused"
   assertTrue "timelog pause did not return 0 $?" $?
-  timelog $debug --dev "$dir" resume ts1 --date "$re_resumed" >/dev/null
+
+  timelog $debug --dev "$dir" resume ts1 --date "$re_resumed"
   assertTrue "timelog resume did not return 0 $?" $?
+
 
   timelog $debug --dev "$dir" log ts1 --date "$ended" >/dev/null <<END
 13:55
@@ -501,7 +508,7 @@ y
 END
   assertTrue "timelog log did not return 0: $?" $?
 
-  logs=$(timelog $debug --dev "$dir" view ts1 $week)
+  logs=$(timelog $debug --dev "$dir" view ts1 $week $year)
   remaining_hours=$(echo "$logs" | grep -o 'You have 39 hours more to work')
   worked_hours=$(echo "$logs" | grep -o 'You have worked for 1 hours')
   assertTrue "Remaining hours was not 39" "[ ! -z '$remaining_hours' ]"
@@ -630,6 +637,7 @@ testShowWeeklyLogsEmpty() {
 
 testShowWeeklyLogsWithUnorderedLogging() {
   createProjectTest
+  year="2017"
   mon="2017-08-14"
   tue="2017-08-15"
   local_monday_name=$(wrap_date "+%A" "$mon")
@@ -647,7 +655,7 @@ END
 timelog $debug --dev "$dir" log ts 0800 1600 0 --date "2012-01-01" >/dev/null << END
 y
 END
-  stdout=$(timelog $debug --dev "$dir" view ts "$week")
+  stdout=$(timelog $debug --dev "$dir" view ts "$week" "$year")
   monday_output=$(echo "$stdout" | head -n2 | tail -n1 | grep "$local_monday_name")
   tuesday_output=$(echo "$stdout" | head -n3 | tail -n1 | grep "$local_tuesday_name")
   if [ ! -z "$monday_output" ] && [ ! -z "$tuesday_output" ]; then
@@ -662,6 +670,7 @@ END
 
 testShowWeeklyLogsWithOvertime() {
   createProjectTest
+  mon="2017"
   mon="2017-08-14"
   tue="2017-08-15"
   wed="2017-08-16"
@@ -684,7 +693,7 @@ timelog $debug --dev "$dir" log ts 0800 1700 0 --date "$fri" >/dev/null << END
 y
 END
   # Overtime by 1 hour logged(friday). Should mention that the user has worked overtime in view
-  stdout=$(timelog $debug --dev "$dir" view ts "$week")
+  stdout=$(timelog $debug --dev "$dir" view ts "$week" "$year")
 
   cmd=$(grep -q "[oO]vertime" <<< $stdout ; echo $?)
   assertTrue "Overtime of 1 hour was not mentioned" "[ $cmd -eq 0 ]"
@@ -697,6 +706,7 @@ testShowWeeklyLogsWithLogsExceedingFiveDays() {
   # For example, logging time for 30 hours for 5 days, the estimate should instead of giving estimates for a 5
   # day work week now give estimation of a 7 day work week because of the target hours not being achieved.
   createProjectTest
+  year="2017"
   mon="2017-08-14"
   tue="2017-08-15"
   wed="2017-08-16"
@@ -719,7 +729,7 @@ timelog $debug --dev "$dir" log ts 0800 1000 0 --date "$fri" >/dev/null << END
 y
 END
   # Overtime by 1 hour logged(friday). Should mention that the user has worked overtime in view
-  stdout=$(timelog $debug --dev "$dir" view ts "$week")
+  stdout=$(timelog $debug --dev "$dir" view ts "$week" "$year")
 
   cmd=$(grep -q "This yields an estimate of 15 hours for 2 more days" <<< $stdout ; echo $?)
   assertTrue "Overtime of 1 hour was not mentioned" "[ $cmd -eq 0 ]"
